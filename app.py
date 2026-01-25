@@ -10,10 +10,20 @@ ELEMENTS_MAP = {
     '寅': '木', '卯': '木', '巳': '火', '午': '火', '申': '金', '酉': '金', '亥': '水', '子': '水', '辰': '土', '戌': '土', '丑': '土', '未': '土'
 }
 
-HIDDEN_STEMS = {
-    '子': ['癸'], '丑': ['己', '癸', '辛'], '寅': ['甲', '丙', '戊'], '卯': ['乙'], '辰': ['戊', '乙', '癸'],
-    '巳': ['丙', '庚', '戊'], '午': ['丁', '己'], '未': ['己', '丁', '乙'], '申': ['庚', '壬', '戊'], '酉': ['辛'],
-    '戌': ['戊', '辛', '丁'], '亥': ['壬', '甲']
+# 定義地支藏干及其能量佔比 (%)
+HIDDEN_STEMS_DATA = {
+    '子': [('癸', 100)],
+    '丑': [('己', 60), ('癸', 30), ('辛', 10)],
+    '寅': [('甲', 60), ('丙', 30), ('戊', 10)],
+    '卯': [('乙', 100)],
+    '辰': [('戊', 60), ('乙', 30), ('癸', 10)],
+    '巳': [('丙', 60), ('庚', 30), ('戊', 10)],
+    '午': [('丁', 70), ('己', 30)],
+    '未': [('己', 60), ('丁', 30), ('乙', 10)],
+    '申': [('庚', 60), ('壬', 30), ('戊', 10)],
+    '酉': [('辛', 100)],
+    '戌': [('戊', 60), ('辛', 30), ('丁', 10)],
+    '亥': [('壬', 70), ('甲', 30)]
 }
 
 # 十二運星矩陣 (日干: {地支: 運星})
@@ -59,6 +69,14 @@ RELATION_MAP = {
     ('水', '水'): '同我', ('水', '木'): '我生', ('水', '火'): '我剋', ('水', '土'): '剋我', ('水', '金'): '生我',
 }
 
+SHEN_SHA_INFO = {
+    "天乙貴人": "命中最吉之神，逢凶化吉，易得貴人助。",
+    "祿神": "主祿祿亨通，生活富足。",
+    "羊刃": "主個性剛毅，易生波折。",
+    "驛馬": "主變動、外向、奔波。",
+    "桃花": "主人緣佳、具魅力。"
+}
+
 @dataclass
 class Bazi:
     year: str; month: str; day: str; hour: str
@@ -79,38 +97,34 @@ def get_ten_god(me_stem, target_stem):
     }
     return gods[relation][same_polarity]
 
-def get_shen_sha_per_pillar(bazi, pillar_idx):
+def get_shen_sha(bazi, pillar_idx):
     me = bazi.stems[2]; branch = bazi.branches[pillar_idx]
     found = []
-    # 簡化神煞邏輯範例
-    # 天乙貴人 (日干查地支)
-    tian_yi = {'甲':['丑','未'], '乙':['子','申'], '丙':['亥','酉'], '丁':['亥','酉'], '戊':['丑','未'], '己':['子','申'], '庚':['丑','未'], '辛':['午','寅'], '壬':['卯','巳'], '癸':['卯','巳']}
-    if branch in tian_yi.get(me, []): found.append("天乙貴人")
-    # 祿神 (日干查地支)
-    lu_shen = {'甲':'寅', '乙':'卯', '丙':'巳', '丁':'午', '戊':'巳', '己':'午', '庚':'申', '辛':'酉', '壬':'亥', '癸':'子'}
-    if branch == lu_shen.get(me): found.append("祿神")
-    # 羊刃 (日干查地支)
-    yang_ren = {'甲':'卯', '乙':'寅', '丙':'午', '丁':'巳', '戊':'午', '己':'巳', '庚':'酉', '辛':'申', '壬':'子', '癸':'亥'}
-    if branch == yang_ren.get(me): found.append("羊刃")
-    # 驛馬 (日支查其餘三支，此處簡化為固定地支組合)
-    yi_ma = {'申':'寅','子':'寅','辰':'寅','巳':'亥','酉':'亥','丑':'亥','寅':'申','午':'申','戌':'申','亥':'巳','卯':'巳','未':'巳'}
-    if branch == yi_ma.get(bazi.branches[2]): found.append("驛馬")
-    
+    # 天乙貴人
+    ty_map = {'甲':['丑','未'], '乙':['子','申'], '丙':['亥','酉'], '丁':['亥','酉'], '戊':['丑','未'], '己':['子','申'], '庚':['丑','未'], '辛':['午','寅'], '壬':['卯','巳'], '癸':['卯','巳']}
+    if branch in ty_map.get(me, []): found.append("天乙貴人")
+    # 祿神
+    lu_map = {'甲':'寅', '乙':'卯', '丙':'巳', '丁':'午', '戊':'巳', '己':'午', '庚':'申', '辛':'酉', '壬':'亥', '癸':'子'}
+    if branch == lu_map.get(me): found.append("祿神")
+    # 驛馬 (簡化邏輯)
+    ym_map = {'申':'寅','子':'寅','辰':'寅','巳':'亥','酉':'亥','丑':'亥','寅':'申','午':'申','戌':'申','亥':'巳','卯':'巳','未':'巳'}
+    if branch == ym_map.get(bazi.branches[2]): found.append("驛馬")
     return found
 
-# --- 3. 渲染函數 ---
+# --- 3. 渲染專業命盤 ---
 def render_professional_chart(bazi):
     me_stem = bazi.stems[2]
+    # 順序：年、月、日、時
     pillar_data = [
         {"title": "年柱", "p": bazi.year, "s": bazi.stems[0], "b": bazi.branches[0], "idx": 0},
-        {"title": "月柱", "p": bazi.month,"s": bazi.stems[1], "b": bazi.branches[1], "idx": 1},
+        {"title": "月柱", "p": bazi.month, "s": bazi.stems[1], "b": bazi.branches[1], "idx": 1},
         {"title": "日柱", "p": bazi.day,  "s": bazi.stems[2], "b": bazi.branches[2], "idx": 2},
         {"title": "時柱", "p": bazi.hour, "s": bazi.stems[3], "b": bazi.branches[3], "idx": 3}
     ]
 
     results = []
     for p in pillar_data:
-        hidden_stems = HIDDEN_STEMS.get(p["b"], [])
+        hidden = HIDDEN_STEMS_DATA.get(p["b"], [])
         results.append({
             "title": p["title"],
             "ten_god": get_ten_god(me_stem, p["s"]) if p["title"] != "日柱" else "日主",
@@ -118,8 +132,8 @@ def render_professional_chart(bazi):
             "branch": p["b"],
             "life_stage": LIFE_STAGES[me_stem][p["b"]],
             "nayin": NAYIN_DATA.get(p["p"], ""),
-            "hidden": [{"stem": s, "god": get_ten_god(me_stem, s)} for s in hidden_stems],
-            "shen_sha": get_shen_sha_per_pillar(bazi, p["idx"])
+            "hidden_info": [{"stem": s, "weight": w, "god": get_ten_god(me_stem, s)} for s, w in hidden],
+            "shen_sha": get_shen_sha(bazi, p["idx"])
         })
 
     html = f"""
@@ -133,32 +147,30 @@ def render_professional_chart(bazi):
                 <td style="background: #eee; border: 1px solid #ddd; padding: 12px; font-weight: bold;">十神</td>
                 {"".join([f'<td style="border: 1px solid #ddd; {"color:#d63031;font-weight:bold;" if r["title"]=="日柱" else ""}">{r["ten_god"]}</td>' for r in results])}
             </tr>
-            <tr style="font-size: 36px; font-weight: bold;">
+            <tr style="font-size: 32px; font-weight: bold;">
                 <td style="background: #eee; border: 1px solid #ddd; padding: 12px; font-size: 16px;">天干</td>
                 {"".join([f'<td style="border: 1px solid #ddd; {"color:#d63031;" if r["title"]=="日柱" else ""}">{r["stem"]}</td>' for r in results])}
             </tr>
-            <tr style="font-size: 36px; font-weight: bold;">
+            <tr style="font-size: 32px; font-weight: bold;">
                 <td style="background: #eee; border: 1px solid #ddd; padding: 12px; font-size: 16px;">地支</td>
                 {"".join([f'<td style="border: 1px solid #ddd;">{r["branch"]}</td>' for r in results])}
             </tr>
             <tr>
-                <td style="background: #eee; border: 1px solid #ddd; padding: 10px; font-weight: bold;">地支藏干</td>
-                {"".join([f'<td style="border: 1px solid #ddd; font-size: 14px;">{" ".join([h["stem"] for h in r["hidden"]])}</td>' for r in results])}
-            </tr>
-            <tr>
-                <td style="background: #eee; border: 1px solid #ddd; padding: 10px; font-weight: bold;">藏干十神</td>
-                {"".join([f'<td style="border: 1px solid #ddd; font-size: 12px; color: #666;">{" ".join([h["god"] for h in r["hidden"]])}</td>' for r in results])}
+                <td style="background: #eee; border: 1px solid #ddd; padding: 12px; font-weight: bold;">藏干十神比例</td>
+                {"".join([f'''<td style="border: 1px solid #ddd; font-size: 13px; text-align: left; padding: 8px;">
+                    {"".join([f'<div>{h["stem"]}({h["god"]}) {h["weight"]}%</div>' for h in r["hidden_info"]])}
+                </td>''' for r in results])}
             </tr>
             <tr style="color: #2980b9; font-weight: bold;">
-                <td style="background: #eee; border: 1px solid #ddd; padding: 10px; font-weight: bold;">十二運星</td>
+                <td style="background: #eee; border: 1px solid #ddd; padding: 12px;">十二運星</td>
                 {"".join([f'<td style="border: 1px solid #ddd;">{r["life_stage"]}</td>' for r in results])}
             </tr>
             <tr style="color: #8e44ad; font-size: 13px;">
-                <td style="background: #eee; border: 1px solid #ddd; padding: 10px; font-weight: bold;">神煞系統</td>
+                <td style="background: #eee; border: 1px solid #ddd; padding: 12px; font-weight: bold;">神煞系統</td>
                 {"".join([f'<td style="border: 1px solid #ddd; font-weight:bold;">{"<br>".join(r["shen_sha"]) if r["shen_sha"] else "-"}</td>' for r in results])}
             </tr>
             <tr style="font-size: 13px; color: #777;">
-                <td style="background: #eee; border: 1px solid #ddd; padding: 10px; font-weight: bold;">納音</td>
+                <td style="background: #eee; border: 1px solid #ddd; padding: 12px; font-weight: bold;">納音</td>
                 {"".join([f'<td style="border: 1px solid #ddd;">{r["nayin"]}</td>' for r in results])}
             </tr>
         </table>
@@ -166,26 +178,44 @@ def render_professional_chart(bazi):
     """
     return html
 
-# --- 4. Streamlit 主頁面 ---
-st.set_page_config(page_title="AI 專業八字命盤", layout="wide")
-st.title("🔮 AI 專業八字全方位解析系統")
+# --- 4. Streamlit 介面與啟動 ---
+st.set_page_config(page_title="專業 AI 八字系統", layout="wide")
+st.title("🔮 專業 AI 八字全方位解析系統")
 
+with st.sidebar:
+    st.header("⚙️ 設定")
+    api_key = st.text_input("輸入 Gemini API Key", type="password")
 
-input_text = st.text_input("輸入八字（年 月 日 時）", "乙巳 戊寅 辛亥 壬辰")
+input_text = st.text_input("請輸入八字（例：乙巳 戊寅 辛亥 壬辰）", "乙巳 戊寅 辛亥 壬辰")
 
 if input_text:
     matches = re.findall(r'[甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥]', input_text)
     if len(matches) >= 4:
         bazi = Bazi(matches[0], matches[1], matches[2], matches[3])
+        
+        # 顯示專業命盤
         st.markdown(render_professional_chart(bazi), unsafe_allow_html=True)
         
-        # 雷達圖與 AI 分析
-        col_chart, col_ai = st.columns(2)
-        with col_chart:
+        # 五行能量分析
+        st.divider()
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("📊 五行能量分佈")
             scores = {"木": 0, "火": 0, "土": 0, "金": 0, "水": 0}
-            for s in bazi.stems + [h for b in bazi.branches for h in HIDDEN_STEMS[b]]:
-                scores[ELEMENTS_MAP[s]] += 1
+            for s in bazi.stems: scores[ELEMENTS_MAP[s]] += 1.0
+            for b in bazi.branches:
+                for s, w in HIDDEN_STEMS_DATA[b]:
+                    scores[ELEMENTS_MAP[s]] += (w/100.0)
+            
             fig = go.Figure(go.Scatterpolar(r=list(scores.values())+[list(scores.values())[0]], theta=list(scores.keys())+[list(scores.keys())[0]], fill='toself'))
             st.plotly_chart(fig, use_container_width=True)
+            
+        with col2:
+            if api_key and st.button("🧙 大師批命"):
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                prompt = f"你是一位資深命理大師，請根據八字「{input_text}」與五行能量 {scores} 提供 300 字左右的分析。"
+                response = model.generate_content(prompt)
+                st.write(response.text)
     else:
-        st.error("請確認輸入包含四組干支，例如：乙巳 戊寅 辛亥 壬辰")
+        st.error("請確認輸入格式為四組干支（如：乙巳 戊寅 辛亥 壬辰）")
