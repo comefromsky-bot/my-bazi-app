@@ -1,3 +1,4 @@
 streamlit
+lunar-python
 plotly
 google-generativeai
