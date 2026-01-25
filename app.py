@@ -17,30 +17,16 @@ HIDDEN_STEMS = {
 }
 
 NAYIN_DATA = {
-    # 木屬性
-    "戊辰": "大林木", "己巳": "大林木", "壬午": "楊柳木", "癸未": "楊柳木",
-    "庚寅": "松柏木", "辛卯": "松柏木", "戊戌": "平地木", "己亥": "平地木",
-    "壬子": "桑柘木", "癸丑": "桑柘木", "庚申": "石榴木", "辛酉": "石榴木",
-    
-    # 火屬性
-    "丙寅": "爐中火", "丁卯": "爐中火", "甲戌": "山頭火", "乙亥": "山頭火",
-    "戊子": "霹靂火", "己丑": "霹靂火", "丙申": "山下火", "丁酉": "山下火",
-    "甲辰": "佛燈火", "乙巳": "佛燈火", "戊午": "天上火", "己未": "天上火",
-    
-    # 土屬性
-    "庚午": "路旁土", "辛未": "路旁土", "戊寅": "城頭土", "己卯": "城頭土",
-    "丙戌": "屋上土", "丁亥": "屋上土", "庚子": "壁上土", "辛丑": "壁上土",
-    "丙辰": "沙中土", "丁巳": "沙中土", "戊申": "大驛土", "己酉": "大驛土",
-    
-    # 金屬性
-    "甲子": "海中金", "乙丑": "海中金", "壬申": "劍鋒金", "癸酉": "劍鋒金",
-    "庚辰": "白蠟金", "辛巳": "白蠟金", "甲午": "砂中金", "乙未": "砂中金",
-    "壬寅": "金箔金", "癸卯": "金箔金", "庚戌": "釵釧金", "辛亥": "釵釧金",
-    
-    # 水屬性
-    "丙子": "澗下水", "丁丑": "澗下水", "甲申": "泉中水", "乙酉": "泉中水",
-    "壬辰": "長流水", "癸巳": "長流水", "丙午": "天河水", "丁未": "天河水",
-    "甲寅": "大溪水", "乙卯": "大溪水", "壬戌": "大海水", "癸亥": "大海水"
+    "甲子": "海中金", "乙丑": "海中金", "丙寅": "爐中火", "丁卯": "爐中火", "戊辰": "大林木", "己巳": "大林木",
+    "庚午": "路旁土", "辛未": "路旁土", "壬申": "劍鋒金", "癸酉": "劍鋒金", "甲戌": "山頭火", "乙亥": "山頭火",
+    "丙子": "澗下水", "丁丑": "澗下水", "戊寅": "城頭土", "己卯": "城頭土", "庚辰": "白蠟金", "辛巳": "白蠟金",
+    "壬午": "楊柳木", "癸未": "楊柳木", "甲申": "泉中水", "乙酉": "泉中水", "丙戌": "屋上土", "丁亥": "屋上土",
+    "戊子": "霹靂火", "己丑": "霹靂火", "庚寅": "松柏木", "辛卯": "松柏木", "壬辰": "長流水", "癸巳": "長流水",
+    "甲午": "砂中金", "乙未": "砂中金", "丙申": "山下火", "丁酉": "山下火", "戊戌": "平地木", "己亥": "平地木",
+    "庚子": "壁上土", "辛丑": "壁上土", "壬寅": "金箔金", "癸卯": "金箔金", "甲辰": "佛燈火", "乙巳": "佛燈火",
+    "丙午": "天河水", "丁未": "天河水", "戊申": "大驛土", "己酉": "大驛土", "庚戌": "釵釧金", "辛亥": "釵釧金",
+    "壬子": "桑柘木", "癸丑": "桑柘木", "甲寅": "大溪水", "乙卯": "大溪水", "丙辰": "沙中土", "丁巳": "沙中土",
+    "戊午": "天上火", "己未": "天上火", "庚申": "石榴木", "辛酉": "石榴木", "壬戌": "大海水", "癸亥": "大海水"
 }
 
 STEM_PROPS = {
@@ -74,14 +60,12 @@ class Bazi:
         self.branches = [self.year[1], self.month[1], self.day[1], self.hour[1]]
 
 # --- 2. 核心邏輯函數 ---
-
 def get_ten_god(me_stem, target_stem):
     if not me_stem or not target_stem: return ""
     me = STEM_PROPS[me_stem]
     target = STEM_PROPS[target_stem]
     relation = RELATION_MAP[(me['element'], target['element'])]
     same_polarity = (me['polarity'] == target['polarity'])
-    
     gods = {
         '同我': {True: '比肩', False: '劫財'},
         '我生': {True: '食神', False: '傷官'},
@@ -117,51 +101,58 @@ def get_shen_sha(bazi):
             break
     return list(set(found))
 
-# --- 3. 專業排盤渲染 ---
-
+# --- 3. 專業排盤渲染 (時、日、月、年 順序) ---
 def render_professional_chart(bazi):
     me_stem = bazi.stems[2]
-    # 定義四柱：時、日、月、年
+    # 資料順序：時、日、月、年
     pillar_data = [
-        {"name": "時柱", "p": bazi.hour, "s": bazi.stems[3], "b": bazi.branches[3]},
-        {"name": "日柱", "p": bazi.day,  "s": bazi.stems[2], "b": bazi.branches[2]},
-        {"name": "月柱", "p": bazi.month,"s": bazi.stems[1], "b": bazi.branches[1]},
-        {"name": "年柱", "p": bazi.year, "s": bazi.stems[0], "b": bazi.branches[0]}
+        {"title": "時柱", "p": bazi.hour, "s": bazi.stems[3], "b": bazi.branches[3]},
+        {"title": "日柱", "p": bazi.day,  "s": bazi.stems[2], "b": bazi.branches[2]},
+        {"title": "月柱", "p": bazi.month,"s": bazi.stems[1], "b": bazi.branches[1]},
+        {"title": "年柱", "p": bazi.year, "s": bazi.stems[0], "b": bazi.branches[0]}
     ]
 
     results = []
     for p in pillar_data:
         results.append({
-            "ten_god": get_ten_god(me_stem, p["s"]) if p["name"] != "日柱" else "命主",
+            "title": p["title"],
+            "ten_god": get_ten_god(me_stem, p["s"]) if p["title"] != "日柱" else "日主",
             "nayin": get_nayin(p["p"]),
             "stem": p["s"],
             "branch": p["b"]
         })
 
     html = f"""
-    <div style="overflow-x: auto; margin-bottom: 20px;">
+    <div style="overflow-x: auto; margin: 20px 0;">
         <table style="width:100%; border-collapse: collapse; text-align: center; border: 2px solid #333; font-family: 'Microsoft JhengHei';">
-            <tr style="background-color: #f8f9fa; font-weight: bold;">
-                <td style="padding: 10px; border: 1px solid #ddd;">{results[0]['ten_god']}</td>
-                <td style="padding: 10px; border: 1px solid #ddd; color: #d63031;">{results[1]['ten_god']}</td>
-                <td style="padding: 10px; border: 1px solid #ddd;">{results[2]['ten_god']}</td>
-                <td style="padding: 10px; border: 1px solid #ddd;">{results[3]['ten_god']}</td>
-                <td rowspan="2" style="background: #eee; width: 60px; border: 1px solid #ddd;">主星</td>
+            <tr style="background-color: #f1f1f1; font-weight: bold; font-size: 16px;">
+                <td style="padding: 10px; border: 1px solid #ddd;">{results[0]['title']}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; background-color: #fff4f4;">{results[1]['title']}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">{results[2]['title']}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">{results[3]['title']}</td>
+                <td style="background: #eee; width: 60px; border: 1px solid #ddd;">位置</td>
             </tr>
-            <tr style="font-size: 28px; font-weight: bold;">
+            <tr style="background-color: #fafafa; font-weight: bold;">
+                <td style="padding: 10px; border: 1px solid #ddd; color: #555;">{results[0]['ten_god']}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; color: #d63031;">{results[1]['ten_god']}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; color: #555;">{results[2]['ten_god']}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; color: #555;">{results[3]['ten_god']}</td>
+                <td style="background: #eee; border: 1px solid #ddd;">十神</td>
+            </tr>
+            <tr style="font-size: 32px; font-weight: bold; background-color: white;">
                 <td style="padding: 15px; border: 1px solid #ddd;">{results[0]['stem']}</td>
-                <td style="padding: 15px; border: 1px solid #ddd; background-color: #fffaf0;">{results[1]['stem']}</td>
+                <td style="padding: 15px; border: 1px solid #ddd; color: #d63031;">{results[1]['stem']}</td>
                 <td style="padding: 15px; border: 1px solid #ddd;">{results[2]['stem']}</td>
                 <td style="padding: 15px; border: 1px solid #ddd;">{results[3]['stem']}</td>
+                <td rowspan="2" style="font-size: 16px; background: #eee; border: 1px solid #ddd;">八字</td>
             </tr>
-            <tr style="font-size: 28px; font-weight: bold;">
+            <tr style="font-size: 32px; font-weight: bold; background-color: white;">
                 <td style="padding: 15px; border: 1px solid #ddd;">{results[0]['branch']}</td>
-                <td style="padding: 15px; border: 1px solid #ddd; background-color: #fffaf0;">{results[1]['branch']}</td>
+                <td style="padding: 15px; border: 1px solid #ddd;">{results[1]['branch']}</td>
                 <td style="padding: 15px; border: 1px solid #ddd;">{results[2]['branch']}</td>
                 <td style="padding: 15px; border: 1px solid #ddd;">{results[3]['branch']}</td>
-                <td style="font-size: 16px; background: #eee; border: 1px solid #ddd;">八字</td>
             </tr>
-            <tr style="font-size: 14px; color: #555;">
+            <tr style="font-size: 14px; color: #666; background-color: #fcfcfc;">
                 <td style="padding: 8px; border: 1px solid #ddd;">{results[0]['nayin']}</td>
                 <td style="padding: 8px; border: 1px solid #ddd;">{results[1]['nayin']}</td>
                 <td style="padding: 8px; border: 1px solid #ddd;">{results[2]['nayin']}</td>
@@ -173,75 +164,42 @@ def render_professional_chart(bazi):
     """
     return html
 
-# --- 4. Streamlit 網頁介面 ---
+# --- 4. Streamlit 介面與啟動 ---
 st.set_page_config(page_title="AI 八字命盤系統", layout="wide")
 st.title("🔮 AI 八字全方位解析系統")
 
 with st.sidebar:
-    st.header("⚙️ 系統設定")
+    st.header("⚙️ 設定")
     api_key = st.text_input("輸入 Gemini API Key", type="password")
-    st.info("API Key 用於啟動『大師批命』AI 點評功能。")
 
-input_text = st.text_input("請輸入八字（例：乙巳 戊寅 辛亥 壬辰）", "乙巳 戊寅 辛亥 壬辰")
+input_text = st.text_input("請貼上八字（如：乙巳 戊寅 辛亥 壬辰）", "乙巳 戊寅 辛亥 壬辰")
 
 if input_text:
     bazi = parse_text(input_text)
     if bazi:
-        # 顯示專業命盤
-        st.subheader("📋 專業命盤資訊")
-        chart_html = render_professional_chart(bazi)
-        st.markdown(chart_html, unsafe_allow_html=True)
+        st.subheader("📋 命盤解析結果 (時、日、月、年)")
+        st.markdown(render_professional_chart(bazi), unsafe_allow_html=True)
         
-        col1, col2 = st.columns([1, 1])
-        
+        col1, col2 = st.columns(2)
         with col1:
             st.subheader("✨ 神煞分析")
-            ss_list = get_shen_sha(bazi)
-            if ss_list:
-                for s in ss_list:
-                    with st.expander(f"✅ 偵測到：{s}", expanded=True):
-                        st.write(SHEN_SHA_DATA.get(s, "尚無詳細解釋"))
+            ss = get_shen_sha(bazi)
+            if ss:
+                for s in ss:
+                    with st.expander(f"✅ {s}"):
+                        st.write(SHEN_SHA_DATA.get(s, ""))
             else:
-                st.info("目前格局未觸發特定神煞。")
+                st.info("無特定神煞觸發")
         
         with col2:
-            st.subheader("📊 五行能量分佈")
+            st.subheader("📊 五行能量")
             scores = calc_elements(bazi)
-            categories = list(scores.keys())
-            values = list(scores.values())
-            
-            fig = go.Figure(go.Scatterpolar(
-                r=values + [values[0]],
-                theta=categories + [categories[0]],
-                fill='toself',
-                line=dict(color='#ff4b4b')
-            ))
-            fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, max(values)+1])), showlegend=False)
+            fig = go.Figure(go.Scatterpolar(r=list(scores.values())+[list(scores.values())[0]], theta=list(scores.keys())+[list(scores.keys())[0]], fill='toself'))
             st.plotly_chart(fig, use_container_width=True)
 
-        st.divider()
-        
-        # AI 點評區
-        if st.button("🧙 啟動 AI 大師批命"):
-            if api_key:
-                try:
-                    genai.configure(api_key=api_key)
-                    model = genai.GenerativeModel('gemini-1.5-flash-latest')
-                    prompt = f"你是一位資深命理大師，請根據八字「{input_text}」與五行強弱分佈 {scores}，提供約 300 字的性格、事業與運勢建議。請用繁體中文回覆。"
-                    
-                    with st.spinner("大師正在夜觀星象..."):
-                        response = model.generate_content(prompt)
-                        st.success("### 🔮 大師點評")
-                        st.write(response.text)
-                except Exception as e:
-                    st.error(f"AI 呼叫失敗：{str(e)}")
-            else:
-                st.warning("請先在左側邊欄輸入 API Key 才能使用 AI 功能。")
-    else:
-        st.error("輸入格式有誤，請確保輸入包含四組干支（如：乙巳 戊寅 辛亥 壬辰）。")
-
-
-
-
-
-
+        if st.button("🧙 大師批命") and api_key:
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel('gemini-1.5-flash-latest')
+            response = model.generate_content(f"請根據八字 {input_text} 與五行得分 {scores} 給予簡短命理建議。")
+            st.success("### AI 建議")
+            st.write(response.text)
