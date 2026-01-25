@@ -73,10 +73,10 @@ if input_text:
             ss = get_shen_sha(bazi)
             if ss:
                 for s in ss:
-                explanation = SHEN_SHA_DATA.get(s, "尚無詳細解釋")
-                # 改用折疊面板取代彈窗
-                with st.expander(f"✅ 偵測到神煞：{s}", expanded=True):
-                 st.write(explanation)
+                    explanation = SHEN_SHA_DATA.get(s, "尚無詳細解釋")
+                    # 改用折疊面板取代彈窗
+                    with st.expander(f"✅ 偵測到神煞：{s}", expanded=True):
+                        st.write(explanation)
             else:
                 st.info("目前格局未觸發特定神煞。")
             
@@ -94,4 +94,5 @@ if input_text:
     else:
 
         st.error("格式錯誤，請確保輸入包含四組干支。")
+
 
