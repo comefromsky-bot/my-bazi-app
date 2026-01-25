@@ -86,86 +86,68 @@ def get_ten_god(me_stem, target_stem):
 
 def get_shen_sha_per_pillar(bazi, pillar_idx):
     me = bazi.stems[2]; branch = bazi.branches[pillar_idx]; m_b = bazi.branches[1]
+    p_s = bazi.stems[pillar_idx]
     found = []
     
-    # 以下邏輯皆參考自《八字神煞系統解析與查詢》
-    # 天乙貴人 (日干查地支)
+    # 德秀貴人 (以月支為主)
+    if m_b in ['寅', '卯', '辰']:
+        if p_s in ['戊', '己']: found.append("德秀貴人")
+    elif m_b in ['巳', '午', '未']:
+        if p_s in ['庚', '辛']: found.append("德秀貴人")
+    elif m_b in ['申', '酉', '戌']:
+        if p_s in ['甲', '乙']: found.append("德秀貴人")
+    elif m_b in ['亥', '子', '丑']:
+        if p_s in ['丙', '丁']: found.append("德秀貴人")
+
+    # 天乙貴人
     tian_yi = {'甲':['丑','未'], '乙':['子','申'], '丙':['亥','酉'], '丁':['亥','酉'], '戊':['丑','未'], '己':['子','申'], '庚':['丑','未'], '辛':['午','寅'], '壬':['卯','巳'], '癸':['卯','巳']}
     if branch in tian_yi.get(me, []): found.append("天乙貴人")
     
-    # 太極貴人 (日干查地支)
+    # 太極貴人
     taiji = {'甲':['子','午'], '乙':['子','午'], '丙':['卯','酉'], '丁':['卯','酉'], '戊':['辰','戌','丑','未'], '己':['辰','戌','丑','未'], '庚':['寅','亥'], '辛':['寅','亥'], '壬':['巳','申'], '癸':['巳','申']}
     if branch in taiji.get(me, []): found.append("太極貴人")
 
-    # 文昌貴人 (日干查地支)
+    # 文昌貴人
     wen_chang = {'甲':'巳', '乙':'午', '丙':'申', '丁':'酉', '戊':'申', '己':'酉', '庚':'亥', '辛':'子', '壬':'寅', '癸':'卯'}
     if branch == wen_chang.get(me): found.append("文昌貴人")
 
-    # 天德貴人 (月支查四柱)
+    # 天德貴人
     tian_de = {'寅':'丁', '卯':'申', '辰':'壬', '巳':'辛', '午':'亥', '未':'甲', '申':'癸', '酉':'寅', '戌':'丙', '亥':'乙', '子':'巳', '丑':'庚'}
     if bazi.stems[pillar_idx] == tian_de.get(m_b) or bazi.branches[pillar_idx] == tian_de.get(m_b): found.append("天德貴人")
 
-    # 月德貴人 (月支查四柱天干)
+    # 月德貴人
     yue_de = {'寅':'丙', '午':'丙', '戌':'丙', '申':'壬', '子':'壬', '辰':'壬', '亥':'甲', '卯':'甲', '未':'甲', '巳':'庚', '酉':'庚', '丑':'庚'}
     if bazi.stems[pillar_idx] == yue_de.get(m_b): found.append("月德貴人")
 
-    # 天醫 (月支查四柱地支)
+    # 天醫
     tian_yi_map = {'寅':'丑', '卯':'寅', '辰':'卯', '巳':'辰', '午':'巳', '未':'午', '申':'未', '酉':'申', '戌':'酉', '亥':'戌', '子':'亥', '丑':'子'}
     if branch == tian_yi_map.get(m_b): found.append("天醫")
 
-    # 祿神 (日干查地支)
+    # 祿神
     lu_shen = {'甲':'寅', '乙':'卯', '丙':'巳', '丁':'午', '戊':'巳', '己':'午', '庚':'申', '辛':'酉', '壬':'亥', '癸':'子'}
     if branch == lu_shen.get(me): found.append("祿神")
 
-    # 羊刃 (日干查地支)
+    # 羊刃
     yang_ren = {'甲':'卯', '乙':'寅', '丙':'午', '丁':'巳', '戊':'午', '己':'巳', '庚':'酉', '辛':'申', '壬':'子', '癸':'亥'}
     if branch == yang_ren.get(me): found.append("羊刃")
 
-    # 驛馬 (日/年支查地支)
+    # 驛馬
     yima = {'申':'寅','子':'寅','辰':'寅','巳':'亥','酉':'亥','丑':'亥','寅':'申','午':'申','戌':'申','亥':'巳','卯':'巳','未':'巳'}
     if branch == yima.get(bazi.branches[2]) or branch == yima.get(bazi.branches[0]): found.append("驛馬")
 
-    # 咸池/桃花 (日/年支查地支)
+    # 咸池/桃花
     taohua = {'寅':'卯','午':'卯','戌':'卯','申':'酉','子':'酉','辰':'酉','亥':'子','卯':'子','未':'子','巳':'午','酉':'午','丑':'午'}
     if branch == taohua.get(bazi.branches[2]) or branch == taohua.get(bazi.branches[0]): found.append("咸池")
 
-    # 華蓋 (日/年支查地支)
+    # 華蓋
     huagai = {'寅':'戌','午':'戌','戌':'戌','申':'辰','子':'辰','辰':'辰','亥':'未','卯':'未','未':'未','巳':'丑','酉':'丑','丑':'丑'}
     if branch == huagai.get(bazi.branches[2]) or branch == huagai.get(bazi.branches[0]): found.append("華蓋")
-
-    # 將星 (日/年支查地支)
-    jiangxing = {'寅':'午','午':'午','戌':'午','申':'子','子':'子','辰':'子','亥':'卯','卯':'卯','未':'卯','巳':'酉','酉':'酉','丑':'酉'}
-    if branch == jiangxing.get(bazi.branches[2]) or branch == jiangxing.get(bazi.branches[0]): found.append("將星")
-
-    # 亡神 (日/年支查地支)
-    wangshen = {'申':'亥','子':'亥','辰':'亥','巳':'申','酉':'申','丑':'申','寅':'巳','午':'巳','戌':'巳','亥':'寅','卯':'寅','未':'寅'}
-    if branch == wangshen.get(bazi.branches[2]) or branch == wangshen.get(bazi.branches[0]): found.append("亡神")
-
-    # 劫煞 (日/年支查地支)
-    jiesha = {'申':'巳','子':'巳','辰':'巳','巳':'寅','酉':'寅','丑':'寅','寅':'亥','午':'亥','戌':'亥','亥':'申','卯':'申','未':'申'}
-    if branch == jiesha.get(bazi.branches[2]) or branch == jiesha.get(bazi.branches[0]): found.append("劫煞")
-
-    # 孤辰/寡宿 (年支查地支)
-    guchen = {'寅':'巳','卯':'巳','辰':'巳','巳':'申','午':'申','未':'申','申':'亥','酉':'亥','戌':'亥','亥':'寅','子':'寅','丑':'寅'}
-    guasu = {'寅':'丑','卯':'丑','辰':'丑','巳':'辰','午':'辰','未':'辰','申':'未','酉':'未','戌':'未','亥':'戌','子':'戌','丑':'戌'}
-    if branch == guchen.get(bazi.branches[0]): found.append("孤辰")
-    if branch == guasu.get(bazi.branches[0]): found.append("寡宿")
-
-    # 魁罡 (日柱判斷)
-    if pillar_idx == 2 and bazi.day in ['戊戌', '庚戌', '庚辰', '壬辰']: found.append("魁罡")
-
-    # 金神 (時柱判斷)
-    if pillar_idx == 3 and bazi.hour in ['癸酉', '己巳', '乙丑']: found.append("金神")
-
-    # 進神 (日柱判斷)
-    if pillar_idx == 2 and bazi.day in ['甲子', '甲午', '己酉', '己卯']: found.append("進神")
 
     return found
 
 # --- 3. 渲染函數 ---
 def render_professional_chart(bazi):
     me_stem = bazi.stems[2]
-    # 定義四柱：年、月、日、時
     pillar_data = [
         {"title": "年柱", "p": bazi.year, "s": bazi.stems[0], "b": bazi.branches[0], "note": "祖輩童年", "idx": 0},
         {"title": "月柱", "p": bazi.month,"s": bazi.stems[1], "b": bazi.branches[1], "note": "父母青年", "idx": 1},
@@ -188,7 +170,6 @@ def render_professional_chart(bazi):
             "note": p["note"]
         })
 
-    # 字體放大與樣式設定
     base_font = "'DFKai-SB', 'BiauKai', '標楷體', serif"
     l_fs = "20px"; c_fs = "18px"
     
@@ -229,7 +210,7 @@ def render_professional_chart(bazi):
             </tr>
             <tr style="color: #8e44ad; font-weight: bold; font-size: {c_fs};">
                 <td style="background: #eee; border: 1px solid #ddd; padding: 10px; font-weight: bold; font-size: {l_fs}; color: #333;">神煞系統</td>
-                {"".join([f'<td style="border: 1px solid #ddd;">{"<br>".join(r["shen_sha"]) if r["shen_sha"] else "—"}</td>' for r in results])}
+                {"".join([f'<td style="border: 1px solid #ccc;">{"<br>".join(r["shen_sha"]) if r["shen_sha"] else "—"}</td>' for r in results])}
             </tr>
             <tr style="font-size: {c_fs}; color: #666;">
                 <td style="background: #eee; border: 1px solid #ddd; padding: 10px; font-weight: bold; font-size: {l_fs}; color: #333;">納音</td>
