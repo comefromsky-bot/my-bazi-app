@@ -335,27 +335,36 @@ def render_professional_chart(bazi):
 # --- 5. Streamlit 主程式 ---
 
 st.set_page_config(page_title="專業 AI 八字解析系統", layout="wide")
-st.title("🔮 專業 AI 八字解析系統")
+st.title("🔮 專業 AI 八字全方位解析系統")
 
 st.subheader("📅 請輸入西元出生時間")
 c1, c2, c3, c4 = st.columns(4)
-with c1: birth_date = st.date_input("選擇出生日期", datetime.date(1990, 1, 1))
-with c4: birth_hour = st.selectbox("出生小時", range(24), format_func=lambda x: f"{x:02d}:00")
+with c1:
+    # 這裡修正了年份選擇問題，設定 min_value 為 1900 年
+    birth_date = st.date_input(
+        "選擇出生日期", 
+        value=datetime.date(1980, 1, 1),
+        min_value=datetime.date(1900, 1, 1),
+        max_value=datetime.date(2100, 12, 31)
+    )
+with c4:
+    birth_hour = st.selectbox("出生小時", range(24), format_func=lambda x: f"{x:02d}:00")
 
 if st.button("🔮 精確排盤"):
     y, m, d, h = birth_date.year, birth_date.month, birth_date.day, birth_hour
     
     # 執行轉換
     solar = Solar.fromYmdHms(y, m, d, h, 0, 0)
-    eight_char = solar.getLunar().getEightChar()
+    lunar = solar.getLunar()
+    eight_char = lunar.getEightChar()
     
-    # 使用正確的方法獲取柱位名稱
+    # 採用更穩定的獲取方式
     y_p = eight_char.getYear()
     m_p = eight_char.getMonth()
     d_p = eight_char.getDay()
-    h_p = eight_char.getTime()  # 修正處: getTime() 代替 getHour()
+    h_p = eight_char.getHour()
     
-    st.success(f"✅ 八字： {y_p} {m_p} {d_p} {h_p}")
+    st.success(f"✅ 轉換成功： {y_p} {m_p} {d_p} {h_p}")
     bazi_obj = Bazi(y_p, m_p, d_p, h_p)
     st.markdown(render_professional_chart(bazi_obj), unsafe_allow_html=True)
 
