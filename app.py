@@ -71,13 +71,14 @@ if input_text:
             st.subheader("📋 命盤資訊")
             st.code(f"年：{bazi.year}  月：{bazi.month}  日：{bazi.day}  時：{bazi.hour}")
             ss = get_shen_sha(bazi)
-            for s in ss:
-                # 先把解釋文字拿出來存成變數，避免在 f-string 或函數參數中直接計算
+            if ss:
+                for s in ss:
                 explanation = SHEN_SHA_DATA.get(s, "尚無詳細解釋")
-                display_text = f"✅ {s}"
-    
-                # 這樣傳入參數最安全，相容性最高
-                st.success(display_text, help=explanation)
+                # 改用折疊面板取代彈窗
+                with st.expander(f"✅ 偵測到神煞：{s}", expanded=True):
+                 st.write(explanation)
+            else:
+                st.info("目前格局未觸發特定神煞。")
             
         with col2:
             st.subheader("📊 五行能量")
@@ -93,3 +94,4 @@ if input_text:
     else:
 
         st.error("格式錯誤，請確保輸入包含四組干支。")
+
