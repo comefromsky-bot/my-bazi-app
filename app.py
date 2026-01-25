@@ -90,7 +90,6 @@ def get_ten_god(me_stem, target_stem):
 def get_shen_sha_list(bazi, pillar_idx):
     me = bazi.stems[2]; branch = bazi.branches[pillar_idx]
     found = []
-    # 範例邏輯
     tian_yi = {'甲':['丑','未'], '乙':['子','申'], '丙':['亥','酉'], '丁':['亥','酉'], '戊':['丑','未'], '己':['子','申'], '庚':['丑','未'], '辛':['午','寅'], '壬':['卯','巳'], '癸':['卯','巳']}
     if branch in tian_yi.get(me, []): found.append("天乙貴人")
     lu_shen = {'甲':'寅', '乙':'卯', '丙':'巳', '丁':'午', '戊':'巳', '己':'午', '庚':'申', '辛':'酉', '壬':'亥', '癸':'子'}
@@ -121,47 +120,49 @@ def render_professional_chart(bazi):
             "shen_sha": get_shen_sha_list(bazi, p["idx"])
         })
 
-    # 字體設定：標楷體與標準字級
-    base_font = "'DFKai-SB', 'BiauKai', '標楷體', STKaiti, serif"
+    # 字體設定
+    base_font = "'DFKai-SB', 'BiauKai', '標楷體', serif"
+    label_font_size = "20px"  # 標籤字體大小
+    content_font_size = "18px" # 內容字體大小
     
     html = f"""
     <div style="overflow-x: auto; margin: 20px 0; font-family: {base_font};">
-        <table style="width:100%; border-collapse: collapse; text-align: center; border: 2px solid #333;">
-            <tr style="background-color: #f2f2f2; font-weight: bold; font-size: 16px;">
-                <td style="width: 140px; background: #e8e8e8; border: 1px solid #ccc; padding: 12px;">位置</td>
-                {"".join([f'<td style="border: 1px solid #ccc; {"background:#fffafa;" if r["title"]=="日柱" else ""}">{r["title"]}</td>' for r in results])}
+        <table style="width:100%; border-collapse: collapse; text-align: center; border: 2.5px solid #333;">
+            <tr style="background-color: #f2f2f2; font-weight: bold; font-size: {label_font_size};">
+                <td style="width: 150px; background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px;">位置</td>
+                {"".join([f'<td style="border: 1.5px solid #ccc; {"background:#fff5f5;" if r["title"]=="日柱" else ""}">{r["title"]}</td>' for r in results])}
             </tr>
-            <tr style="font-size: 16px;">
-                <td style="background: #e8e8e8; border: 1px solid #ccc; padding: 12px; font-weight: bold;">十神</td>
-                {"".join([f'<td style="border: 1px solid #ccc; {"color:#c0392b;font-weight:bold;" if r["title"]=="日柱" else ""}">{r["ten_god"]}</td>' for r in results])}
-            </tr>
-            <tr style="font-size: 36px; font-weight: bold;">
-                <td style="background: #e8e8e8; border: 1px solid #ccc; padding: 15px; font-size: 18px;">天干</td>
-                {"".join([f'<td style="border: 1px solid #ccc; {"color:#c0392b;" if r["title"]=="日柱" else ""}">{r["stem"]}</td>' for r in results])}
+            <tr style="font-size: {content_font_size};">
+                <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; font-weight: bold; font-size: {label_font_size};">十神</td>
+                {"".join([f'<td style="border: 1.5px solid #ccc; {"color:#c0392b;font-weight:bold;" if r["title"]=="日柱" else ""}">{r["ten_god"]}</td>' for r in results])}
             </tr>
             <tr style="font-size: 36px; font-weight: bold;">
-                <td style="background: #e8e8e8; border: 1px solid #ccc; padding: 15px; font-size: 18px;">地支</td>
-                {"".join([f'<td style="border: 1px solid #ccc;">{r["branch"]}</td>' for r in results])}
+                <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; font-size: {label_font_size};">天干</td>
+                {"".join([f'<td style="border: 1.5px solid #ccc; {"color:#c0392b;" if r["title"]=="日柱" else ""}">{r["stem"]}</td>' for r in results])}
             </tr>
-            <tr style="font-size: 15px;">
-                <td style="background: #e8e8e8; border: 1px solid #ccc; padding: 12px; font-weight: bold;">藏干十神比例</td>
-                {"".join([f'''<td style="border: 1px solid #ccc; padding: 10px; vertical-align: middle;">
+            <tr style="font-size: 36px; font-weight: bold;">
+                <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; font-size: {label_font_size};">地支</td>
+                {"".join([f'<td style="border: 1.5px solid #ccc;">{r["branch"]}</td>' for r in results])}
+            </tr>
+            <tr style="font-size: {content_font_size};">
+                <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; font-weight: bold; font-size: {label_font_size};">藏干十神比例</td>
+                {"".join([f'''<td style="border: 1.5px solid #ccc; padding: 12px; vertical-align: middle;">
                     <div style="display: inline-block; text-align: center; width: 100%;">
                         {"".join([f'<div>{h["stem"]}({h["god"]}) {h["weight"]}%</div>' for h in r["hidden"]])}
                     </div>
                 </td>''' for r in results])}
             </tr>
-            <tr style="font-size: 16px; color: #2e86de; font-weight: bold;">
-                <td style="background: #e8e8e8; border: 1px solid #ccc; padding: 12px;">十二運星</td>
-                {"".join([f'<td style="border: 1px solid #ccc;">{r["life_stage"]}</td>' for r in results])}
+            <tr style="font-size: {content_font_size}; color: #2e86de; font-weight: bold;">
+                <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; font-size: {label_font_size}; color: #333;">十二運星</td>
+                {"".join([f'<td style="border: 1.5px solid #ccc;">{r["life_stage"]}</td>' for r in results])}
             </tr>
-            <tr style="font-size: 14px; color: #8e44ad;">
-                <td style="background: #e8e8e8; border: 1px solid #ccc; padding: 12px; font-weight: bold;">神煞系統</td>
-                {"".join([f'<td style="border: 1px solid #ccc; font-weight: bold;">{"<br>".join(r["shen_sha"]) if r["shen_sha"] else "—"}</td>' for r in results])}
+            <tr style="font-size: {content_font_size}; color: #8e44ad;">
+                <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; font-weight: bold; font-size: {label_font_size}; color: #333;">神煞系統</td>
+                {"".join([f'<td style="border: 1.5px solid #ccc; font-weight: bold;">{"<br>".join(r["shen_sha"]) if r["shen_sha"] else "—"}</td>' for r in results])}
             </tr>
-            <tr style="font-size: 14px; color: #666;">
-                <td style="background: #e8e8e8; border: 1px solid #ccc; padding: 12px; font-weight: bold;">納音</td>
-                {"".join([f'<td style="border: 1px solid #ccc;">{r["nayin"]}</td>' for r in results])}
+            <tr style="font-size: {content_font_size}; color: #666;">
+                <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; font-weight: bold; font-size: {label_font_size}; color: #333;">納音</td>
+                {"".join([f'<td style="border: 1.5px solid #ccc;">{r["nayin"]}</td>' for r in results])}
             </tr>
         </table>
     </div>
@@ -169,8 +170,8 @@ def render_professional_chart(bazi):
     return html
 
 # --- 4. 網頁介面 (Streamlit) ---
-st.set_page_config(page_title="AI 專業八字排盤", layout="wide")
-st.title("🔮 AI 專業八字排盤系統")
+st.set_page_config(page_title="專業 AI 八字排盤", layout="wide")
+st.title("🔮 專業 AI 八字排盤系統")
 
 input_text = st.text_input("請輸入八字（例：乙巳 戊寅 辛亥 壬辰）", "乙巳 戊寅 辛亥 壬辰")
 
@@ -180,7 +181,7 @@ if input_text:
         bazi = Bazi(matches[0], matches[1], matches[2], matches[3])
         st.markdown(render_professional_chart(bazi), unsafe_allow_html=True)
         
-        # 底部五行能量分析
+        # 底部五行能量雷達圖
         st.divider()
         scores = {"木": 0, "火": 0, "土": 0, "金": 0, "水": 0}
         for s in bazi.stems: scores[ELEMENTS_MAP[s]] += 1.0
@@ -190,4 +191,4 @@ if input_text:
         fig = go.Figure(go.Scatterpolar(r=list(scores.values())+[list(scores.values())[0]], theta=list(scores.keys())+[list(scores.keys())[0]], fill='toself'))
         st.plotly_chart(fig, use_container_width=True)
     else:
-        st.error("請確認格式：包含四組完整的干支。")
+        st.error("請確認格式：輸入四柱完整的干支。")
