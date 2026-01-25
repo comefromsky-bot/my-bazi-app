@@ -73,7 +73,7 @@ class Bazi:
         self.stems = [self.year[0], self.month[0], self.day[0], self.hour[0]]
         self.branches = [self.year[1], self.month[1], self.day[1], self.hour[1]]
 
-# --- 2. 邏輯函數 ---
+# --- 2. 核心運算函數 ---
 def get_ten_god(me_stem, target_stem):
     if not me_stem or not target_stem: return ""
     me = STEM_PROPS[me_stem]; target = STEM_PROPS[target_stem]
@@ -89,10 +89,25 @@ def get_ten_god(me_stem, target_stem):
 def get_shen_sha_list(bazi, pillar_idx):
     me = bazi.stems[2]; branch = bazi.branches[pillar_idx]
     found = []
+    
+    # 1. 天乙貴人
     tian_yi = {'甲':['丑','未'], '乙':['子','申'], '丙':['亥','酉'], '丁':['亥','酉'], '戊':['丑','未'], '己':['子','申'], '庚':['丑','未'], '辛':['午','寅'], '壬':['卯','巳'], '癸':['卯','巳']}
     if branch in tian_yi.get(me, []): found.append("天乙貴人")
-    lu_shen = {'甲':'寅', '乙':'卯', '丙':'巳', '丁':'午', '戊':'巳', '己':'午', '庚':'申', '辛':'酉', '壬':'亥', '癸':'子'}
-    if branch == lu_shen.get(me): found.append("祿神")
+    
+    # 2. 祿神
+    lu_map = {'甲':'寅', '乙':'卯', '丙':'巳', '丁':'午', '戊':'巳', '己':'午', '庚':'申', '辛':'酉', '壬':'亥', '癸':'子'}
+    if branch == lu_map.get(me): found.append("祿神")
+
+    # 3. 【新增】太極貴人條件比對
+    taiji_map = {
+        '甲': ['子', '午'], '乙': ['子', '午'],
+        '丙': ['卯', '酉'], '丁': ['卯', '酉'],
+        '戊': ['辰', '戌', '丑', '未'], '己': ['辰', '戌', '丑', '未'],
+        '庚': ['寅', '亥'], '辛': ['寅', '亥'],
+        '壬': ['巳', '申'], '癸': ['巳', '申']
+    }
+    if branch in taiji_map.get(me, []): found.append("太極貴人")
+    
     return found
 
 # --- 3. 專業排盤渲染 ---
@@ -120,7 +135,6 @@ def render_professional_chart(bazi):
             "note": p["note"]
         })
 
-    # 字體與樣式設定
     base_font = "'DFKai-SB', 'BiauKai', '標楷體', serif"
     label_font_size = "20px"  
     content_font_size = "18px"
@@ -130,23 +144,23 @@ def render_professional_chart(bazi):
         <table style="width:100%; border-collapse: collapse; text-align: center; border: 2.5px solid #333;">
             <tr style="background-color: #f2f2f2; font-weight: bold; font-size: {label_font_size};">
                 <td style="width: 150px; background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px;">位置</td>
-                {"".join([f'<td style="border: 1.5px solid #ccc; {"background:#fff5f5;" if r["title"]=="日柱" else ""}">{r["title"]}</td>' for r in results])}
+                {"".join([f'<td style="border: 1px solid #ccc; {"background:#fff5f5;" if r["title"]=="日柱" else ""}">{r["title"]}</td>' for r in results])}
             </tr>
             <tr style="font-size: {label_font_size}; color: #d35400; font-weight: bold;">
                 <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; color: #333;">宮位意涵</td>
-                {"".join([f'<td style="border: 1.5px solid #ccc; background: #fffcf5;">{r["note"]}</td>' for r in results])}
+                {"".join([f'<td style="border: 1px solid #ccc; background: #fffcf5;">{r["note"]}</td>' for r in results])}
             </tr>
             <tr style="font-size: {content_font_size};">
                 <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; font-weight: bold; font-size: {label_font_size};">十神</td>
-                {"".join([f'<td style="border: 1.5px solid #ccc; {"color:#c0392b;font-weight:bold;" if r["title"]=="日柱" else ""}">{r["ten_god"]}</td>' for r in results])}
+                {"".join([f'<td style="border: 1px solid #ccc; {"color:#c0392b;font-weight:bold;" if r["title"]=="日柱" else ""}">{r["ten_god"]}</td>' for r in results])}
             </tr>
             <tr style="font-size: 36px; font-weight: bold;">
                 <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; font-size: {label_font_size}; font-weight: bold;">天干</td>
-                {"".join([f'<td style="border: 1.5px solid #ccc; {"color:#c0392b;" if r["title"]=="日柱" else ""}">{r["stem"]}</td>' for r in results])}
+                {"".join([f'<td style="border: 1px solid #ccc; {"color:#c0392b;" if r["title"]=="日柱" else ""}">{r["stem"]}</td>' for r in results])}
             </tr>
             <tr style="font-size: 36px; font-weight: bold;">
                 <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; font-size: {label_font_size}; font-weight: bold;">地支</td>
-                {"".join([f'<td style="border: 1.5px solid #ccc;">{r["branch"]}</td>' for r in results])}
+                {"".join([f'<td style="border: 1px solid #ccc;">{r["branch"]}</td>' for r in results])}
             </tr>
             <tr style="font-size: {content_font_size};">
                 <td style="background: #e8e8e8; border: 1px solid #ccc; padding: 15px; font-weight: bold; font-size: {label_font_size};">藏干十神比例</td>
@@ -162,11 +176,11 @@ def render_professional_chart(bazi):
             </tr>
             <tr style="font-size: {content_font_size}; color: #8e44ad;">
                 <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; font-weight: bold; font-size: {label_font_size}; color: #333;">神煞系統</td>
-                {"".join([f'<td style="border: 1.5px solid #ccc; font-weight: bold;">{"<br>".join(r["shen_sha"]) if r["shen_sha"] else "—"}</td>' for r in results])}
+                {"".join([f'<td style="border: 1px solid #ccc; font-weight: bold;">{"<br>".join(r["shen_sha"]) if r["shen_sha"] else "—"}</td>' for r in results])}
             </tr>
             <tr style="font-size: {content_font_size}; color: #666;">
                 <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; font-weight: bold; font-size: {label_font_size}; color: #333;">納音</td>
-                {"".join([f'<td style="border: 1.5px solid #ccc;">{r["nayin"]}</td>' for r in results])}
+                {"".join([f'<td style="border: 1px solid #ccc;">{r["nayin"]}</td>' for r in results])}
             </tr>
         </table>
     </div>
@@ -185,7 +199,6 @@ if input_text:
         bazi = Bazi(matches[0], matches[1], matches[2], matches[3])
         st.markdown(render_professional_chart(bazi), unsafe_allow_html=True)
         
-        # 雷達圖分析
         st.divider()
         scores = {"木": 0, "火": 0, "土": 0, "金": 0, "水": 0}
         for s in bazi.stems: scores[ELEMENTS_MAP[s]] += 1.0
