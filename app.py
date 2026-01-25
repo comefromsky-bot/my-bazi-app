@@ -87,12 +87,13 @@ if input_text:
             st.plotly_chart(fig, use_container_width=True)
 
         if api_key and st.button("🧙 大師批命"):
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            genai.configure(api_key=AIzaSyBhZRfa01APz16GXkP1HjBIJv4waFrQjIM)
+            model = genai.GenerativeModel('gemini-1.5-flash-latest')
             response = model.generate_content(f"請根據八字 {input_text} 與五行得分 {scores} 給予 200 字命理建議。")
             st.write(response.text)
     else:
 
         st.error("格式錯誤，請確保輸入包含四組干支。")
+
 
 
