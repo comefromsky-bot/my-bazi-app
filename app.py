@@ -99,7 +99,7 @@ def get_shen_sha_list(bazi, pillar_idx):
 def render_professional_chart(bazi):
     me_stem = bazi.stems[2]
     pillar_data = [
-        {"title": "年柱", "p": bazi.year, "s": bazi.stems[0], "b": bazi.branches[0], "note": "祖輩", "idx": 0},
+        {"title": "年柱", "p": bazi.year, "s": bazi.stems[0], "b": bazi.branches[0], "note": "祖輩童年", "idx": 0},
         {"title": "月柱", "p": bazi.month, "s": bazi.stems[1], "b": bazi.branches[1], "note": "父母青年", "idx": 1},
         {"title": "日柱", "p": bazi.day,  "s": bazi.stems[2], "b": bazi.branches[2], "note": "自身配偶", "idx": 2},
         {"title": "時柱", "p": bazi.hour, "s": bazi.stems[3], "b": bazi.branches[3], "note": "子女晚年", "idx": 3}
@@ -132,6 +132,10 @@ def render_professional_chart(bazi):
                 <td style="width: 150px; background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px;">位置</td>
                 {"".join([f'<td style="border: 1.5px solid #ccc; {"background:#fff5f5;" if r["title"]=="日柱" else ""}">{r["title"]}</td>' for r in results])}
             </tr>
+            <tr style="font-size: {label_font_size}; color: #d35400; font-weight: bold;">
+                <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; color: #333;">宮位意涵</td>
+                {"".join([f'<td style="border: 1.5px solid #ccc; background: #fffcf5;">{r["note"]}</td>' for r in results])}
+            </tr>
             <tr style="font-size: {content_font_size};">
                 <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; font-weight: bold; font-size: {label_font_size};">十神</td>
                 {"".join([f'<td style="border: 1.5px solid #ccc; {"color:#c0392b;font-weight:bold;" if r["title"]=="日柱" else ""}">{r["ten_god"]}</td>' for r in results])}
@@ -154,7 +158,7 @@ def render_professional_chart(bazi):
             </tr>
             <tr style="font-size: {content_font_size}; color: #2e86de; font-weight: bold;">
                 <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; font-size: {label_font_size}; color: #333;">十二運星</td>
-                {"".join([f'<td style="border: 1.5px solid #ccc;">{r["life_stage"]}</td>' for r in results])}
+                {"".join([f'<td style="border: 1px solid #ccc;">{r["life_stage"]}</td>' for r in results])}
             </tr>
             <tr style="font-size: {content_font_size}; color: #8e44ad;">
                 <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; font-weight: bold; font-size: {label_font_size}; color: #333;">神煞系統</td>
@@ -163,10 +167,6 @@ def render_professional_chart(bazi):
             <tr style="font-size: {content_font_size}; color: #666;">
                 <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; font-weight: bold; font-size: {label_font_size}; color: #333;">納音</td>
                 {"".join([f'<td style="border: 1.5px solid #ccc;">{r["nayin"]}</td>' for r in results])}
-            </tr>
-            <tr style="font-size: {label_font_size}; color: #d35400; font-weight: bold;">
-                <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; color: #333;">宮位意涵</td>
-                {"".join([f'<td style="border: 1.5px solid #ccc; background: #fffcf5;">{r["note"]}</td>' for r in results])}
             </tr>
         </table>
     </div>
@@ -185,7 +185,7 @@ if input_text:
         bazi = Bazi(matches[0], matches[1], matches[2], matches[3])
         st.markdown(render_professional_chart(bazi), unsafe_allow_html=True)
         
-        # 雷達圖
+        # 雷達圖分析
         st.divider()
         scores = {"木": 0, "火": 0, "土": 0, "金": 0, "水": 0}
         for s in bazi.stems: scores[ELEMENTS_MAP[s]] += 1.0
