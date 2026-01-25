@@ -1,7 +1,6 @@
 import streamlit as st
 import re
 import plotly.graph_objects as go
-import google.generativeai as genai
 from dataclasses import dataclass
 
 # --- 1. 基礎資料定義 ---
@@ -74,7 +73,7 @@ class Bazi:
         self.stems = [self.year[0], self.month[0], self.day[0], self.hour[0]]
         self.branches = [self.year[1], self.month[1], self.day[1], self.hour[1]]
 
-# --- 2. 核心運算函數 ---
+# --- 2. 邏輯函數 ---
 def get_ten_god(me_stem, target_stem):
     if not me_stem or not target_stem: return ""
     me = STEM_PROPS[me_stem]; target = STEM_PROPS[target_stem]
@@ -100,10 +99,10 @@ def get_shen_sha_list(bazi, pillar_idx):
 def render_professional_chart(bazi):
     me_stem = bazi.stems[2]
     pillar_data = [
-        {"title": "年柱", "p": bazi.year, "s": bazi.stems[0], "b": bazi.branches[0], "idx": 0},
-        {"title": "月柱", "p": bazi.month, "s": bazi.stems[1], "b": bazi.branches[1], "idx": 1},
-        {"title": "日柱", "p": bazi.day,  "s": bazi.stems[2], "b": bazi.branches[2], "idx": 2},
-        {"title": "時柱", "p": bazi.hour, "s": bazi.stems[3], "b": bazi.branches[3], "idx": 3}
+        {"title": "年柱", "p": bazi.year, "s": bazi.stems[0], "b": bazi.branches[0], "note": "祖輩", "idx": 0},
+        {"title": "月柱", "p": bazi.month, "s": bazi.stems[1], "b": bazi.branches[1], "note": "父母青年", "idx": 1},
+        {"title": "日柱", "p": bazi.day,  "s": bazi.stems[2], "b": bazi.branches[2], "note": "自身配偶", "idx": 2},
+        {"title": "時柱", "p": bazi.hour, "s": bazi.stems[3], "b": bazi.branches[3], "note": "子女晚年", "idx": 3}
     ]
 
     results = []
@@ -117,13 +116,14 @@ def render_professional_chart(bazi):
             "life_stage": LIFE_STAGES[me_stem][p["b"]],
             "nayin": NAYIN_DATA.get(p["p"], ""),
             "hidden": [{"stem": s, "weight": w, "god": get_ten_god(me_stem, s)} for s, w in hidden],
-            "shen_sha": get_shen_sha_list(bazi, p["idx"])
+            "shen_sha": get_shen_sha_list(bazi, p["idx"]),
+            "note": p["note"]
         })
 
-    # 字體設定
+    # 字體與樣式設定
     base_font = "'DFKai-SB', 'BiauKai', '標楷體', serif"
-    label_font_size = "20px"  # 標籤字體大小
-    content_font_size = "18px" # 內容字體大小
+    label_font_size = "20px"  
+    content_font_size = "18px"
     
     html = f"""
     <div style="overflow-x: auto; margin: 20px 0; font-family: {base_font};">
@@ -137,16 +137,16 @@ def render_professional_chart(bazi):
                 {"".join([f'<td style="border: 1.5px solid #ccc; {"color:#c0392b;font-weight:bold;" if r["title"]=="日柱" else ""}">{r["ten_god"]}</td>' for r in results])}
             </tr>
             <tr style="font-size: 36px; font-weight: bold;">
-                <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; font-size: {label_font_size};">天干</td>
+                <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; font-size: {label_font_size}; font-weight: bold;">天干</td>
                 {"".join([f'<td style="border: 1.5px solid #ccc; {"color:#c0392b;" if r["title"]=="日柱" else ""}">{r["stem"]}</td>' for r in results])}
             </tr>
             <tr style="font-size: 36px; font-weight: bold;">
-                <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; font-size: {label_font_size};">地支</td>
+                <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; font-size: {label_font_size}; font-weight: bold;">地支</td>
                 {"".join([f'<td style="border: 1.5px solid #ccc;">{r["branch"]}</td>' for r in results])}
             </tr>
             <tr style="font-size: {content_font_size};">
-                <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; font-weight: bold; font-size: {label_font_size};">藏干十神比例</td>
-                {"".join([f'''<td style="border: 1.5px solid #ccc; padding: 12px; vertical-align: middle;">
+                <td style="background: #e8e8e8; border: 1px solid #ccc; padding: 15px; font-weight: bold; font-size: {label_font_size};">藏干十神比例</td>
+                {"".join([f'''<td style="border: 1px solid #ccc; padding: 12px; vertical-align: middle;">
                     <div style="display: inline-block; text-align: center; width: 100%;">
                         {"".join([f'<div>{h["stem"]}({h["god"]}) {h["weight"]}%</div>' for h in r["hidden"]])}
                     </div>
@@ -164,14 +164,18 @@ def render_professional_chart(bazi):
                 <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; font-weight: bold; font-size: {label_font_size}; color: #333;">納音</td>
                 {"".join([f'<td style="border: 1.5px solid #ccc;">{r["nayin"]}</td>' for r in results])}
             </tr>
+            <tr style="font-size: {label_font_size}; color: #d35400; font-weight: bold;">
+                <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; color: #333;">宮位意涵</td>
+                {"".join([f'<td style="border: 1.5px solid #ccc; background: #fffcf5;">{r["note"]}</td>' for r in results])}
+            </tr>
         </table>
     </div>
     """
     return html
 
-# --- 4. 網頁介面 (Streamlit) ---
-st.set_page_config(page_title="專業 AI 八字排盤", layout="wide")
-st.title("🔮 專業 AI 八字排盤系統")
+# --- 4. Streamlit 介面 ---
+st.set_page_config(page_title="專業 AI 八字系統", layout="wide")
+st.title("🔮 專業 AI 八字全方位解析系統")
 
 input_text = st.text_input("請輸入八字（例：乙巳 戊寅 辛亥 壬辰）", "乙巳 戊寅 辛亥 壬辰")
 
@@ -181,13 +185,12 @@ if input_text:
         bazi = Bazi(matches[0], matches[1], matches[2], matches[3])
         st.markdown(render_professional_chart(bazi), unsafe_allow_html=True)
         
-        # 底部五行能量雷達圖
+        # 雷達圖
         st.divider()
         scores = {"木": 0, "火": 0, "土": 0, "金": 0, "水": 0}
         for s in bazi.stems: scores[ELEMENTS_MAP[s]] += 1.0
         for b in bazi.branches:
             for s, w in HIDDEN_STEMS_DATA[b]: scores[ELEMENTS_MAP[s]] += (w/100.0)
-        
         fig = go.Figure(go.Scatterpolar(r=list(scores.values())+[list(scores.values())[0]], theta=list(scores.keys())+[list(scores.keys())[0]], fill='toself'))
         st.plotly_chart(fig, use_container_width=True)
     else:
