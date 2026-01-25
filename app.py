@@ -205,7 +205,10 @@ def get_55_shen_sha(bazi, pillar_idx):
 
     # 20. 德秀 / 21. 天醫 / 31. 血刃
     if m_b in ['寅','午','戌'] and t_s in ['丙','丁','戊','癸']: found.append("德秀貴人")
-    if m_b in ['申','子','辰'] and t_s in ['壬','癸','丙','辛']: found.append("德秀貴人")
+    if m_b in ['申','子','辰'] and t_s in ['壬','癸','戊','己']: found.append("德秀貴人")
+    if m_b in ['申','子','辰'] and t_s in ['丙','辛','甲','乙']: found.append("德秀貴人")
+    if m_b in ['巳','酉','丑'] and t_s in ['庚','辛','乙']: found.append("德秀貴人")
+    if m_b in ['亥','卯','未'] and t_s in ['甲','乙','丁','壬']: found.append("德秀貴人")
     if t_b == BRANCHES[(BRANCHES.index(m_b)-1)%12]: found.append("天醫")
     xr = {'寅':'丑','卯':'未','辰':'寅','巳':'申','午':'卯','未':'戌','申':'亥','酉':'午','戌':'子','亥':'巳','子':'辰','丑':'酉'}
     if t_b == xr.get(m_b): found.append("血刃")
@@ -355,4 +358,5 @@ if st.button("🔮 精確排盤"):
     st.success(f"✅ 八字： {y_p} {m_p} {d_p} {h_p}")
     bazi_obj = Bazi(y_p, m_p, d_p, h_p)
     st.markdown(render_professional_chart(bazi_obj), unsafe_allow_html=True)
+
 
