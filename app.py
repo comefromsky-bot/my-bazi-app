@@ -3,7 +3,7 @@ import re
 import plotly.graph_objects as go
 from dataclasses import dataclass
 
-# --- 1. 基礎資料定義 ---
+# --- 1. 基礎資料與納音定義 ---
 BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥']
 
 ELEMENTS_MAP = {
@@ -33,18 +33,18 @@ LIFE_STAGES = {
     '癸': {'卯': '長生', '寅': '沐浴', '丑': '冠帶', '子': '臨官', '亥': '帝旺', '戌': '衰', '酉': '病', '申': '死', '未': '墓', '午': '絕', '巳': '胎', '辰': '養'}
 }
 
-NAYIN_DATA = {
-    "甲子": "海中金", "乙丑": "海中金", "丙寅": "爐中火", "丁卯": "爐中火", "戊辰": "大林木", "己巳": "大林木",
-    "庚午": "路旁土", "辛未": "路旁土", "壬申": "劍鋒金", "癸酉": "劍鋒金", "甲戌": "山頭火", "乙亥": "山頭火",
-    "丙子": "澗下水", "丁丑": "澗下水", "戊寅": "城頭土", "己卯": "城頭土", "庚辰": "白蠟金", "辛巳": "白蠟金",
-    "壬午": "楊柳木", "癸未": "楊柳木", "甲申": "泉中水", "乙酉": "泉中水", "丙戌": "屋上土", "丁亥": "屋上土",
-    "戊子": "霹靂火", "己丑": "霹靂火", "庚寅": "松柏木", "辛卯": "松柏木", "壬辰": "長流水", "癸巳": "長流水",
-    "甲午": "砂中金", "乙未": "砂中金", "丙申": "山下火", "丁酉": "山下火", "戊戌": "平地木", "己亥": "平地木",
-    "庚子": "壁上土", "辛丑": "壁上土", "壬寅": "金箔金", "癸卯": "金箔金", "甲辰": "佛燈火", "乙巳": "佛燈火",
-    "丙午": "天河水", "丁未": "天河水", "戊申": "大驛土", "己酉": "大驛土", "庚戌": "釵釧金", "辛亥": "釵釧金",
-    "壬子": "桑柘木", "癸丑": "桑柘木", "甲寅": "大溪水", "乙卯": "大溪水", "丙辰": "沙中土", "丁巳": "沙中土",
-    "戊午": "天上火", "己未": "天上火", "庚申": "石榴木", "辛酉": "石榴木", "壬戌": "大海水", "癸亥": "大海水"
-}
+# 納音五行查詢
+def get_nayin(pillar):
+    nayin_map = {
+        '金': ['甲子','乙丑','壬寅','癸卯','庚辰','辛巳','甲午','乙未','壬申','癸酉','庚戌','辛亥'],
+        '木': ['壬子','癸丑','庚寅','辛卯','戊辰','己巳','壬午','癸未','庚申','辛酉','戊戌','己亥'],
+        '水': ['丙子','丁丑','甲寅','乙卯','壬辰','癸巳','丙午','丁開','甲申','乙酉','壬戌','癸亥'],
+        '火': ['戊子','己丑','丙寅','丁卯','甲辰','乙巳','戊午','己未','丙申','丁酉','甲戌','乙亥'],
+        '土': ['庚子','辛丑','戊寅','己卯','丙辰','丁巳','庚午','辛未','戊申','己酉','丙戌','丁亥']
+    }
+    for k, v in nayin_map.items():
+        if pillar in v: return k
+    return None
 
 STEM_PROPS = {
     '甲': {'element': '木', 'polarity': '陽'}, '乙': {'element': '木', 'polarity': '陰'},
@@ -70,7 +70,7 @@ class Bazi:
         self.branches = [self.year[1], self.month[1], self.day[1], self.hour[1]]
         self.pillars = [self.year, self.month, self.day, self.hour]
 
-# --- 2. 邏輯運算函數 ---
+# --- 2. 核心運算函數 ---
 def get_ten_god(me_stem, target_stem):
     if not me_stem or not target_stem: return ""
     me = STEM_PROPS[me_stem]; target = STEM_PROPS[target_stem]
@@ -84,153 +84,169 @@ def get_ten_god(me_stem, target_stem):
     return gods[relation][same_polarity]
 
 def get_shen_sha_per_pillar(bazi, pillar_idx):
-    day_stem = bazi.stems[2]     # 日干基準
-    year_stem = bazi.stems[0]    # 年干基準 (本次新增神煞之核心)
+    # 獲取基準值
+    year_branch = bazi.branches[0]
+    month_branch = bazi.branches[1]
+    day_stem = bazi.stems[2]
+    day_branch = bazi.branches[2]
     
-    branch = bazi.branches[pillar_idx]
-    stem = bazi.stems[pillar_idx]
-    pillar = bazi.pillars[pillar_idx]
+    # 獲取當前柱的值
+    target_branch = bazi.branches[pillar_idx]
+    target_stem = bazi.stems[pillar_idx]
+    target_pillar = bazi.pillars[pillar_idx]
     
     found = []
 
-    # --- A. 以日干為基準的傳統神煞 (保留原有的) ---
-    tian_yi_day = {'甲':['丑','未'], '乙':['子','申'], '丙':['亥','酉'], '丁':['亥','酉'], '戊':['丑','未'], '己':['子','申'], '庚':['丑','未'], '辛':['午','寅'], '壬':['卯','巳'], '癸':['卯','巳']}
-    if branch in tian_yi_day.get(day_stem, []): found.append("天乙貴人(日)")
+    # --- 第一部分：年支基準 ---
+    yi_ma = {'子':'巳', '丑':'寅', '寅':'亥', '卯':'申', '辰':'巳', '巳':'寅', '午':'亥', '未':'申', '申':'巳', '酉':'寅', '戌':'亥', '亥':'申'}
+    if target_branch == yi_ma.get(year_branch): found.append("驛馬")
+    
+    wang_shen = {'子':'寅', '丑':'亥', '寅':'申', '卯':'巳', '辰':'寅', '巳':'亥', '午':'申', '未':'巳', '申':'寅', '酉':'亥', '戌':'申', '亥':'巳'}
+    if target_branch == wang_shen.get(year_branch): found.append("亡神")
+    
+    jie_sha = {'子':'申', '丑':'巳', '寅':'寅', '卯':'亥', '辰':'申', '巳':'巳', '午':'寅', '未':'亥', '申':'申', '酉':'巳', '戌':'寅', '亥':'亥'}
+    if target_branch == jie_sha.get(year_branch): found.append("劫煞")
+    
+    tao_hua = {'子':'酉', '丑':'午', '寅':'卯', '卯':'子', '辰':'酉', '巳':'午', '午':'卯', '未':'子', '申':'酉', '酉':'午', '戌':'卯', '亥':'子'}
+    if target_branch == tao_hua.get(year_branch): found.append("桃花")
+    
+    gu_chen = {'子':'寅','丑':'寅','寅':'巳','卯':'巳','辰':'巳','巳':'申','午':'申','未':'申','申':'亥','酉':'亥','戌':'亥','亥':'寅'}
+    if target_branch == gu_chen.get(year_branch): found.append("孤辰")
+    
+    gua_su = {'子':'戌','丑':'戌','寅':'丑','卯':'丑','辰':'丑','巳':'辰','午':'辰','未':'辰','申':'未','酉':'未','戌':'未','亥':'戌'}
+    if target_branch == gua_su.get(year_branch): found.append("寡宿")
+    
+    jiang_xing = {'子':'子', '丑':'酉', '寅':'午', '卯':'卯', '辰':'子', '巳':'酉', '午':'午', '未':'卯', '申':'子', '酉':'酉', '戌':'午', '亥':'卯'}
+    if target_branch == jiang_xing.get(year_branch): found.append("將星")
+    
+    huagai_zimu = {'子':'癸未', '丑':'壬辰', '寅':'乙丑', '卯':'甲戌', '辰':'癸未', '巳':'壬辰', '午':'乙丑', '未':'甲戌', '申':'癸未', '酉':'壬辰', '戌':'乙丑', '亥':'甲戌'}
+    if target_pillar == huagai_zimu.get(year_branch): found.append("華蓋自墓")
 
-    # --- B. 以年干為基準的神煞 (根據您的對照表新增) ---
-    me = year_stem # 定義 me 為年干
-    
-    # 1. 天乙
-    tian_yi_year = {'甲':'巳', '乙':'未', '丙':'申', '丁':'酉', '戊':'亥', '己':'丑', '庚':'子', '辛':'丑', '壬':'寅', '癸':'卯'}
-    if branch == tian_yi_year.get(me): found.append("天乙")
-    
-    # 2. 玉堂
-    yu_tang_year = {'甲':'卯', '乙':'丑', '丙':'子', '丁':'亥', '戊':'酉', '己':'未', '庚':'申', '辛':'未', '壬':'午', '癸':'巳'}
-    if branch == yu_tang_year.get(me): found.append("玉堂")
-    
-    # 3. 文昌
-    wen_chang_year = {'甲':'卯', '乙':'巳', '丙':'午', '丁':'申', '戊':'酉', '己':'申', '庚':'酉', '辛':'亥', '壬':'子', '癸':'寅'}
-    if branch == wen_chang_year.get(me): found.append("文昌")
-    
-    # 4. 真文昌
-    zhen_wen_chang = {'甲':'乙卯', '乙':'己巳', '丙':'壬午', '丁':'丙申', '戊':'己酉', '己':'庚申', '庚':'癸酉', '辛':'丁亥', '壬':'庚子', '癸':'壬寅'}
-    if pillar == zhen_wen_chang.get(me): found.append("真文昌")
-    
-    # 5. 元祿神
-    yuan_lu = {'甲':'子', '乙':'寅', '丙':'卯', '丁':'巳', '戊':'午', '己':'巳', '庚':'午', '辛':'申', '壬':'酉', '癸':'亥'}
-    if branch == yuan_lu.get(me): found.append("元祿神")
-    
-    # 6. 元星
-    yuan_xing = {'甲':'申', '乙':'寅', '丙':'亥', '丁':'卯', '戊':'戌', '己':'丑', '庚':'子', '辛':'辰', '壬':'酉', '癸':'巳'}
-    if branch == yuan_xing.get(me): found.append("元星")
-    
-    # 7. 天廚
-    tian_chu = {'甲':'亥', '乙':'巳', '丙':'午', '丁':'子', '戊':'巳', '己':'午', '庚':'申', '辛':'寅', '壬':'午', '癸':'酉'}
-    if branch == tian_chu.get(me): found.append("天廚")
-    
-    # 8. 太極貴人
-    taiji = {'甲':['申','巳'], '乙':['子','午'], '丙':['子','午'], '丁':['卯','酉'], '戊':['卯','酉'], '己':['辰','戌','丑','未'], '庚':['辰','戌','丑','未'], '辛':['寅','亥'], '壬':['寅','亥'], '癸':['申','巳']}
-    if branch in taiji.get(me, []): found.append("太極貴人")
-    
-    # 9. 文昌貴
-    wen_chang_gui = {'甲':'丑', '乙':'巳', '丙':'亥', '丁':'戌', '戊':'辰', '己':'申', '庚':'午', '辛':'寅', '壬':'未', '癸':'卯'}
-    if branch == wen_chang_gui.get(me): found.append("文昌貴")
-    
-    # 10. 文星貴
-    wen_xing_gui = {'甲':'卯', '乙':'午', '丙':'巳', '丁':'申', '戊':'酉', '己':'申', '庚':'酉', '辛':'戌', '壬':'亥', '癸':'寅'}
-    if branch == wen_xing_gui.get(me): found.append("文星貴")
-    
-    # 11. 天印貴
-    tian_yin_gui = {'甲':'卯', '乙':'寅', '丙':'亥', '丁':'戌', '戊':'酉', '己':'申', '庚':'未', '辛':'午', '壬':'巳', '癸':'辰'}
-    if branch == tian_yin_gui.get(me): found.append("天印貴")
-    
-    # 12. 天福
-    tian_fu = {'甲':'巳', '乙':'酉', '丙':'申', '丁':'子', '戊':'亥', '己':'卯', '庚':'寅', '辛':'午', '壬':'巳', '癸':'午'}
-    if branch == tian_fu.get(me): found.append("天福")
-    
-    # 13. 天官
-    tian_guan = {'甲':'午', '乙':'未', '丙':'辰', '丁':'巳', '戊':'寅', '己':'卯', '庚':'酉', '辛':'亥', '壬':'酉', '癸':'戌'}
-    if branch == tian_guan.get(me): found.append("天官")
-    
-    # 14. 歲德
-    sui_de = {'甲':'戊', '乙':'甲', '丙':'庚', '丁':'丙', '戊':'壬', '己':'甲', '庚':'甲', '辛':'庚', '壬':'丙', '癸':'壬'}
-    if stem == sui_de.get(me): found.append("歲德")
-    
-    # 15. 歲德合
-    sui_de_he = {'甲':'癸', '乙':'己', '丙':'乙', '丁':'辛', '戊':'丁', '己':'己', '庚':'己', '辛':'乙', '壬':'辛', '癸':'丁'}
-    if stem == sui_de_he.get(me): found.append("歲德合")
-    
-    # 16. 歲干合
-    sui_gan_he = {'甲':'戊', '乙':'己', '丙':'庚', '丁':'辛', '戊':'壬', '己':'癸', '庚':'甲', '辛':'乙', '壬':'丙', '癸':'丁'}
-    if stem == sui_gan_he.get(me): found.append("歲干合")
-    
-    # 17. 真陽貴
-    zhen_yang_gui = {'甲':'丁巳', '乙':'辛未', '丙':'甲申', '丁':'丁酉', '戊':'辛亥', '己':'乙丑', '庚':'丙子', '辛':'己丑', '壬':'庚寅', '癸':'癸卯'}
-    if pillar == zhen_yang_gui.get(me): found.append("真陽貴")
-    
-    # 18. 真陰貴
-    zhen_yin_gui = {'甲':'乙卯', '乙':'丁丑', '丙':'戊子', '丁':'乙亥', '戊':'己酉', '己':'己未', '庚':'壬申', '辛':'癸未', '壬':'甲午', '癸':'乙巳'}
-    if pillar == zhen_yin_gui.get(me): found.append("真陰貴")
-    
-    # 19. 真命祿
-    zhen_ming_lu = {'甲':'甲子', '乙':'丙寅', '丙':'己卯', '丁':'癸巳', '戊':'丙午', '己':'丁巳', '庚':'庚午', '辛':'甲申', '壬':'丁酉', '癸':'辛亥'}
-    if pillar == zhen_ming_lu.get(me): found.append("真命祿")
-    
-    # 20. 武曲星
-    wu_qu = {'甲':'酉', '乙':'亥', '丙':'子', '丁':'寅', '戊':'卯', '己':'寅', '庚':'卯', '辛':'巳', '壬':'辰', '癸':'申'}
-    if branch == wu_qu.get(me): found.append("武曲星")
-    
-    # 21. 金神七煞
-    jin_shen_7_sha = {'甲':['申','酉'], '乙':['未'], '丙':['辰','巳'], '丁':['子','丑','寅','卯'], '戊':['戌','亥'], '己':['申','酉'], '庚':['午','未'], '辛':['辰','巳'], '壬':['子','丑','寅','卯'], '癸':['戌','亥']}
-    if branch in jin_shen_7_sha.get(me, []): found.append("金神七煞")
-    
-    # 22. 紅艷煞
-    hong_yan_year = {'甲':'申', '乙':'午', '丙':'申', '丁':'寅', '戊':'未', '己':'辰', '庚':'辰', '辛':'戌', '壬':'酉', '癸':'子'}
-    if branch == hong_yan_year.get(me): found.append("紅艷煞")
-    
-    # 23. 流霞
-    liu_xia_year = {'甲':'寅', '乙':'酉', '丙':'戌', '丁':'未', '戊':'申', '己':'巳', '庚':'午', '辛':'辰', '壬':'卯', '癸':'亥'}
-    if branch == liu_xia_year.get(me): found.append("流霞")
-    
-    # 24. 天掃星
-    tian_sao = {'甲':'甲戌', '乙':'癸未', '丙':'壬午', '丁':'辛巳', '戊':'庚辰', '己':'卯', '庚':'戊寅', '辛':'丁丑', '壬':'丙子', '癸':'乙亥'}
-    if pillar == tian_sao.get(me): found.append("天掃星")
-    
-    # 25. 節度貴人
-    jie_du = {'甲':'丑', '乙':'巳', '丙':'未', '丁':'巳', '戊':'未', '己':'巳', '庚':'未', '辛':'亥', '壬':'丑', '癸':'亥'}
-    if branch == jie_du.get(me): found.append("節度貴人")
-    
-    # 26. 金輿
-    jin_yu_year = {'甲':'寅', '乙':'辰', '丙':'巳', '丁':'未', '戊':'申', '己':'未', '庚':'申', '辛':'戌', '壬':'亥', '癸':'丑'}
-    if branch == jin_yu_year.get(me): found.append("金輿")
-    
-    # 27. 福星貴人
-    fu_xing_year = {'甲':['乙卯','乙丑'], '乙':['丙寅','丙子'], '丙':['丁亥','丁丑'], '丁':['戊戌'], '戊':['己酉'], '己':['庚申'], '庚':['辛未'], '辛':['壬辰'], '壬':['癸巳'], '癸':['甲辰']}
-    if pillar in fu_xing_year.get(me, []): found.append("福星貴人")
+    pan_an = {'子':'辰','丑':'丑','寅':'戌','卯':'未','辰':'辰','巳':'丑','午':'戌','未':'未','申':'辰','酉':'丑','戌':'戌','亥':'未'}
+    if target_branch == pan_an.get(year_branch): found.append("攀鞍")
 
-    return found
+    yuan_chen = {'子':'午','丑':'亥','寅':'未','卯':'申','辰':'酉','巳':'戌','午':'子','未':'丑','申':'寅','酉':'卯','戌':'辰','亥':'巳'} # 元辰依陰陽干有別，此為簡化版
+    if target_branch == yuan_chen.get(year_branch): found.append("元辰")
 
-# --- 3. 渲染專業命盤 ---
+    gou_jiao = {'子':['卯','酉'],'丑':['辰','戌'],'寅':['巳','亥'],'卯':['午','子'],'辰':['未','丑'],'巳':['申','寅'],'午':['酉','卯'],'未':['戌','辰'],'申':['亥','巳'],'酉':['子','午'],'戌':['丑','未'],'亥':['寅','申']}
+    if target_branch in gou_jiao.get(year_branch, []): found.append("勾絞")
+
+    sang_men = {'子':'寅','丑':'卯','寅':'辰','卯':'巳','辰':'午','巳':'未','午':'申','未':'酉','申':'戌','酉':'亥','戌':'子','亥':'丑'}
+    if target_branch == sang_men.get(year_branch): found.append("喪門")
+    
+    diao_ke = {'子':'戌','丑':'亥','寅':'子','卯':'丑','辰':'寅','巳':'卯','午':'辰','未':'巳','申':'午','酉':'未','戌':'申','亥':'酉'}
+    if target_branch == diao_ke.get(year_branch): found.append("弔客")
+
+    # --- 第二部分：月支基準 ---
+    yue_de = {'寅':'甲', '卯':'壬', '辰':'庚', '巳':'丙', '午':'甲', '未':'壬', '申':'庚', '酉':'丙', '戌':'甲', '亥':'壬', '子':'庚', '丑':'丙'}
+    if target_stem == yue_de.get(month_branch): found.append("月德")
+    
+    yue_de_he = {'寅':'己', '卯':'丁', '辰':'乙', '巳':'辛', '午':'己', '未':'丁', '申':'乙', '酉':'辛', '戌':'己', '亥':'丁', '子':'乙', '丑':'辛'}
+    if target_stem == yue_de_he.get(month_branch): found.append("月德合")
+    
+    tian_she = {'寅':'戊寅', '卯':'戊寅', '辰':'戊寅', '巳':'甲午', '午':'甲午', '未':'甲午', '申':'戊申', '酉':'戊申', '戌':'戊申', '亥':'甲子', '子':'甲子', '丑':'甲子'}
+    if target_pillar == tian_she.get(month_branch): found.append("天赦")
+    
+    tian_yi_month = {'寅':'丑', '卯':'寅', '辰':'卯', '巳':'辰', '午':'巳', '未':'午', '申':'未', '酉':'申', '戌':'酉', '亥':'戌', '子':'亥', '丑':'子'}
+    if target_branch == tian_yi_month.get(month_branch): found.append("天醫")
+
+    tian_de = {'寅':'丁','卯':'申','辰':'壬','巳':'辛','午':'亥','未':'甲','申':'癸','酉':'寅','戌':'丙','亥':'乙','子':'巳','丑':'庚'}
+    if target_stem == tian_de.get(month_branch) or target_branch == tian_de.get(month_branch): found.append("天德")
+
+    tian_xi = {'寅':'戌','卯':'戌','辰':'戌','巳':'丑','午':'丑','未':'丑','申':'辰','酉':'辰','戌':'辰','亥':'未','子':'未','丑':'未'}
+    if target_branch == tian_xi.get(month_branch): found.append("天喜神")
+
+    xiu_qi = {'寅':['丁','壬'], '卯':['丙','辛','甲','己'], '辰':['乙','庚'], '巳':['戊','癸'], '午':['丁','壬'], '未':['丙','辛','甲','己'], '申':['乙','庚'], '酉':['戊','癸'], '戌':['丁','壬'], '亥':['丙','辛','甲','己'], '子':['乙','庚'], '丑':['戊','癸']}
+    if target_stem in xiu_qi.get(month_branch, []): found.append("秀氣")
+
+    xue_ji = {'寅':'丑','卯':'未','辰':'寅','巳':'申','午':'卯','未':'戌','申':'亥','酉':'午','戌':'子','亥':'巳','子':'辰','丑':'酉'}
+    if target_branch == xue_ji.get(month_branch): found.append("血忌")
+
+    # --- 第三部分：日干基準 ---
+    lu_shen = {'甲':'寅', '乙':'卯', '丙':'巳', '丁':'午', '戊':'巳', '己':'午', '庚':'申', '辛':'酉', '壬':'亥', '癸':'子'}
+    if target_branch == lu_shen.get(day_stem): found.append("祿神")
+    
+    yang_ren = {'甲':'卯', '乙':'辰', '丙':'午', '丁':'未', '戊':'午', '己':'未', '庚':'酉', '辛':'戌', '壬':'子', '癸':'丑'}
+    if target_branch == yang_ren.get(day_stem): found.append("陽刃")
+    
+    if target_pillar in ['壬辰', '庚辰', '庚戌', '戊戌']: found.append("魁罡")
+    
+    jin_yu_day = {'甲':'辰', '乙':'巳', '丙':'未', '丁':'申', '戊':'未', '己':'申', '庚':'戌', '辛':'亥', '壬':'丑', '癸':'寅'}
+    if target_branch == jin_yu_day.get(day_stem): found.append("金轝")
+    
+    if target_pillar in ['甲辰', '乙亥', '丙辰', '丁酉', '戊午', '庚戌', '辛亥', '壬寅', '癸卯']: found.append("十靈日")
+    
+    hong_yan_day = {'甲':'午', '乙':'申', '丙':'寅', '丁':'未', '戊':'辰', '己':'辰', '庚':'戌', '辛':'酉', '壬':'子', '癸':'申'}
+    if target_branch == hong_yan_day.get(day_stem): found.append("紅艷煞")
+    
+    if target_pillar in ['丙子', '丁丑', '戊寅', '辛卯', '壬辰', '癸巳', '丙午', '丁開', '戊申', '辛酉', '壬戌', '癸亥']: found.append("陰陽差錯")
+    
+    if target_pillar in ['甲辰', '乙巳', '丙申', '丁亥', '戊戌', '己丑', '庚辰', '辛巳', '壬申', '癸亥']: found.append("十惡大敗")
+
+    yuan_xing = {'甲':'申','乙':'寅','丙':'亥','丁':'卯','戊':'戌','己':'丑','庚':'子','辛':'辰','壬':'酉','癸':'巳'}
+    if target_branch == yuan_xing.get(day_stem): found.append("元星")
+
+    tian_guan = {'甲':'午','乙':'未','丙':'辰','丁':'巳','戊':'寅','己':'卯','庚':'酉','辛':'亥','壬':'酉','癸':'戌'}
+    if target_branch == tian_guan.get(day_stem): found.append("天官")
+
+    sui_de = {'甲':'戊','乙':'甲','丙':'庚','丁':'丙','戊':'壬','己':'甲','庚':'甲','辛':'庚','壬':'丙','癸':'壬'}
+    if target_stem == sui_de.get(day_stem): found.append("歲德")
+
+    sui_de_he = {'甲':'癸','乙':'己','丙':'乙','丁':'辛','戊':'丁','己':'己','庚':'己','辛':'乙','壬':'辛','癸':'丁'}
+    if target_stem == sui_de_he.get(day_stem): found.append("歲德合")
+
+    tian_yuan_an_lu = {'丙':'巳','丁':'申','庚':'亥','辛':'寅'}
+    if day_stem in tian_yuan_an_lu and target_branch == tian_yuan_an_lu.get(day_stem): found.append("天元暗祿")
+
+    shi_da_kong_wang = {'甲':'申','乙':'申','丙':'申','丁':'申','戊':'申','己':'戌','庚':'戌','辛':'丑','壬':'丑','癸':'申'}
+    if target_branch == shi_da_kong_wang.get(day_stem): found.append("十大空亡")
+
+    guan_gui_xue_tang = {'甲':'申','乙':'巳','丙':'巳','丁':'申','戊':'申','己':'亥','庚':'亥','辛':'寅','壬':'寅','癸':'申'}
+    if target_branch == guan_gui_xue_tang.get(day_stem): found.append("官貴學堂")
+
+    # --- 第四部分：日支基準 (對時支) ---
+    if pillar_idx == 3: # 如果是時柱
+        tian_tu_sha = {'子':'丑','丑':'午','寅':'亥','卯':'戌','辰':'酉','巳':'申','午':'未','未':'子','申':'巳','酉':'辰','戌':'卯','亥':'寅'}
+        if target_branch == tian_tu_sha.get(day_branch): found.append("天屠殺")
+        
+        ge_jiao_sha_1 = {'子':'子','丑':'亥','寅':'戌','卯':'酉','辰':'申','巳':'未','午':'午','未':'巳','申':'辰','酉':'卯','戌':'寅','亥':'丑'}
+        if target_branch == ge_jiao_sha_1.get(day_branch): found.append("隔角殺")
+
+    # --- 第五部分：納音基準 ---
+    nayin_e = get_nayin(bazi.pillars[0]) # 以年柱納音為準
+    if nayin_e:
+        xue_tang_nayin = {'金':'己亥', '火':'丙寅', '木':'戊申', '水':'辛巳', '土':'甲申'}
+        if target_pillar == xue_tang_nayin.get(nayin_e): found.append("學堂")
+        
+        ci_guan_nayin = {'金':'庚寅', '火':'乙巳', '木':'己亥', '水':'壬申', '土':'癸亥'}
+        if target_pillar == ci_guan_nayin.get(nayin_e): found.append("詞館")
+        
+        zi_si_nayin = {'金':'壬午', '火':'丁酉', '木':'己卯', '水':'甲子', '土':'乙卯'}
+        if target_pillar == zi_si_nayin.get(nayin_e): found.append("自死")
+
+    return list(set(found))
+
+# --- 3. 專業排盤渲染 ---
 def render_professional_chart(bazi):
-    me_stem = bazi.stems[2] # 日主
+    me_stem = bazi.stems[2]
     pillar_data = [
         {"title": "年柱", "p": bazi.year, "s": bazi.stems[0], "b": bazi.branches[0], "note": "祖輩童年", "idx": 0},
-        {"title": "月柱", "p": bazi.month,"s": bazi.stems[1], "b": bazi.branches[1], "note": "父母青年", "idx": 1},
+        {"title": "月柱", "p": bazi.month, "s": bazi.stems[1], "b": bazi.branches[1], "note": "父母青年", "idx": 1},
         {"title": "日柱", "p": bazi.day,  "s": bazi.stems[2], "b": bazi.branches[2], "note": "自身配偶", "idx": 2},
         {"title": "時柱", "p": bazi.hour, "s": bazi.stems[3], "b": bazi.branches[3], "note": "子女晚年", "idx": 3}
     ]
 
     results = []
     for p in pillar_data:
-        hidden_data = HIDDEN_STEMS_DATA.get(p["b"], [])
+        hidden = HIDDEN_STEMS_DATA.get(p["b"], [])
         results.append({
             "title": p["title"],
             "ten_god": get_ten_god(me_stem, p["s"]) if p["title"] != "日柱" else "日主",
             "stem": p["s"],
             "branch": p["b"],
             "life_stage": LIFE_STAGES[me_stem][p["b"]],
-            "nayin": NAYIN_DATA.get(p["p"], ""),
-            "hidden_info": [{"stem": s, "weight": w, "god": get_ten_god(me_stem, s)} for s, w in hidden_data],
+            "nayin": get_nayin(p["p"]),
+            "hidden": [{"stem": s, "weight": w, "god": get_ten_god(me_stem, s)} for s, w in hidden],
             "shen_sha": get_shen_sha_per_pillar(bazi, p["idx"]),
             "note": p["note"]
         })
@@ -241,45 +257,45 @@ def render_professional_chart(bazi):
     html = f"""
     <div style="overflow-x: auto; margin: 20px 0; font-family: {base_font}; text-align: center;">
         <table style="width:100%; border-collapse: collapse; text-align: center; border: 2.5px solid #333;">
-            <tr style="background-color: #f1f1f1; font-weight: bold; font-size: {l_fs};">
-                <td style="width: 140px; background: #eee; border: 1px solid #ddd; padding: 12px;">位置</td>
-                {"".join([f'<td style="border: 1px solid #ddd; {"background:#fff5f5;" if r["title"]=="日柱" else ""}">{r["title"]}</td>' for r in results])}
+            <tr style="background-color: #f2f2f2; font-weight: bold; font-size: {l_fs};">
+                <td style="width: 140px; background: #e8e8e8; border: 1.5px solid #ccc; padding: 12px;">位置</td>
+                {"".join([f'<td style="border: 1px solid #ccc; {"background:#fffafa;" if r["title"]=="日柱" else ""}">{r["title"]}</td>' for r in results])}
             </tr>
             <tr style="font-size: {l_fs}; color: #d35400; font-weight: bold;">
-                <td style="background: #eee; border: 1px solid #ddd; padding: 12px; color: #333;">宮位意涵</td>
-                {"".join([f'<td style="border: 1px solid #ddd; background: #fffcf5;">{r["note"]}</td>' for r in results])}
+                <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 12px; color: #333;">宮位意涵</td>
+                {"".join([f'<td style="border: 1px solid #ccc; background: #fffcf5;">{r["note"]}</td>' for r in results])}
             </tr>
             <tr style="font-size: {c_fs};">
-                <td style="background: #eee; border: 1px solid #ddd; padding: 12px; font-weight: bold; font-size: {l_fs};">十神</td>
-                {"".join([f'<td style="border: 1px solid #ddd; {"color:#d63031;font-weight:bold;" if r["title"]=="日柱" else ""}">{r["ten_god"]}</td>' for r in results])}
+                <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 12px; font-weight: bold; font-size: {l_fs};">十神</td>
+                {"".join([f'<td style="border: 1px solid #ccc; {"color:#c0392b;font-weight:bold;" if r["title"]=="日柱" else ""}">{r["ten_god"]}</td>' for r in results])}
             </tr>
             <tr style="font-size: 36px; font-weight: bold;">
-                <td style="background: #eee; border: 1px solid #ddd; padding: 15px; font-size: {l_fs};">天干</td>
-                {"".join([f'<td style="border: 1px solid #ddd; {"color:#d63031;" if r["title"]=="日柱" else ""}">{r["stem"]}</td>' for r in results])}
+                <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; font-size: {l_fs};">天干</td>
+                {"".join([f'<td style="border: 1px solid #ccc; {"color:#c0392b;" if r["title"]=="日柱" else ""}">{r["stem"]}</td>' for r in results])}
             </tr>
             <tr style="font-size: 36px; font-weight: bold;">
-                <td style="background: #eee; border: 1px solid #ddd; padding: 15px; font-size: {l_fs};">地支</td>
-                {"".join([f'<td style="border: 1px solid #ddd;">{r["branch"]}</td>' for r in results])}
+                <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 15px; font-size: {l_fs};">地支</td>
+                {"".join([f'<td style="border: 1px solid #ccc;">{r["branch"]}</td>' for r in results])}
             </tr>
-            <tr>
-                <td style="background: #eee; border: 1px solid #ddd; padding: 10px; font-weight: bold; font-size: {l_fs};">藏干十神比例</td>
-                {"".join([f'''<td style="border: 1px solid #ddd; font-size: {c_fs}; vertical-align: middle;">
+            <tr style="font-size: 15px;">
+                <td style="background: #e8e8e8; border: 1px solid #ccc; padding: 12px; font-weight: bold;">藏干十神比例</td>
+                {"".join([f'''<td style="border: 1px solid #ccc; padding: 10px; vertical-align: middle;">
                     <div style="display: inline-block; text-align: center; width: 100%;">
-                        {"".join([f'<div>{h["stem"]}({h["god"]}) {h["weight"]}%</div>' for h in r["hidden_info"]])}
+                        {"".join([f'<div>{h["stem"]}({h["god"]}) {h["weight"]}%</div>' for h in r["hidden"]])}
                     </div>
                 </td>''' for r in results])}
             </tr>
-            <tr style="color: #2980b9; font-weight: bold; font-size: {c_fs};">
-                <td style="background: #eee; border: 1px solid #ddd; padding: 10px; font-weight: bold; font-size: {l_fs}; color: #333;">十二運星</td>
-                {"".join([f'<td style="border: 1px solid #ddd;">{r["life_stage"]}</td>' for r in results])}
+            <tr style="font-size: 16px; color: #2e86de; font-weight: bold;">
+                <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 12px;">十二運星</td>
+                {"".join([f'<td style="border: 1px solid #ccc;">{r["life_stage"]}</td>' for r in results])}
             </tr>
-            <tr style="color: #8e44ad; font-weight: bold; font-size: {c_fs};">
-                <td style="background: #eee; border: 1px solid #ddd; padding: 10px; font-weight: bold; font-size: {l_fs}; color: #333;">神煞系統</td>
-                {"".join([f'<td style="border: 1px solid #ccc;">{"<br>".join(r["shen_sha"]) if r["shen_sha"] else "—"}</td>' for r in results])}
+            <tr style="font-size: 14px; color: #8e44ad;">
+                <td style="background: #e8e8e8; border: 1.5px solid #ccc; padding: 12px; font-weight: bold;">神煞系統</td>
+                {"".join([f'<td style="border: 1px solid #ccc; font-weight: bold;">{"<br>".join(r["shen_sha"]) if r["shen_sha"] else "—"}</td>' for r in results])}
             </tr>
-            <tr style="font-size: {c_fs}; color: #666;">
-                <td style="background: #eee; border: 1px solid #ddd; padding: 10px; font-weight: bold; font-size: {l_fs}; color: #333;">納音</td>
-                {"".join([f'<td style="border: 1px solid #ddd;">{r["nayin"]}</td>' for r in results])}
+            <tr style="font-size: 14px; color: #666;">
+                <td style="background: #e8e8e8; border: 1px solid #ccc; padding: 12px; font-weight: bold;">納音</td>
+                {"".join([f'<td style="border: 1px solid #ccc;">{r["nayin"]}</td>' for r in results])}
             </tr>
         </table>
     </div>
@@ -290,7 +306,7 @@ def render_professional_chart(bazi):
 st.set_page_config(page_title="專業 AI 八字系統", layout="wide")
 st.title("🔮 專業 AI 八字全方位解析系統")
 
-input_text = st.text_input("輸入八字（例：乙巳 戊寅 辛亥 壬辰）", "乙巳 戊寅 辛亥 壬辰")
+input_text = st.text_input("請輸入八字（例：乙巳 戊寅 辛亥 壬辰）", "乙巳 戊寅 辛亥 壬辰")
 
 if input_text:
     matches = re.findall(r'[甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥]', input_text)
@@ -298,15 +314,13 @@ if input_text:
         bazi = Bazi(matches[0], matches[1], matches[2], matches[3])
         st.markdown(render_professional_chart(bazi), unsafe_allow_html=True)
         
-        # 能量分布雷達圖
         st.divider()
         scores = {"木": 0, "火": 0, "土": 0, "金": 0, "水": 0}
         for s in bazi.stems: scores[ELEMENTS_MAP[s]] += 1.0
         for b in bazi.branches:
-            for s, w in HIDDEN_STEMS_DATA[b]:
-                scores[ELEMENTS_MAP[s]] += (w/100.0)
+            for s, w in HIDDEN_STEMS_DATA[b]: scores[ELEMENTS_MAP[s]] += (w/100.0)
         
         fig = go.Figure(go.Scatterpolar(r=list(scores.values())+[list(scores.values())[0]], theta=list(scores.keys())+[list(scores.keys())[0]], fill='toself'))
         st.plotly_chart(fig, use_container_width=True)
     else:
-        st.error("格式錯誤：請確保輸入四組完整的干支。")
+        st.error("請確認格式：輸入四柱完整的干支。")
