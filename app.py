@@ -1,9 +1,10 @@
 import streamlit as st
 import re
+import datetime  # <--- 補上這一行
 import plotly.graph_objects as go
 from dataclasses import dataclass
 
-# 導入專業曆法庫 (請確保已執行 pip install lunar-python)
+# 導入專業曆法庫
 try:
     from lunar_python import Solar, Lunar
 except ImportError:
@@ -308,3 +309,4 @@ if st.button("🔮 開始精確排盤"):
         for s, w in HIDDEN_STEMS_DATA[b]: scores[ELEMENTS_MAP[s]] += (w/100.0)
     fig = go.Figure(go.Scatterpolar(r=list(scores.values())+[list(scores.values())[0]], theta=list(scores.keys())+[list(scores.keys())[0]], fill='toself'))
     st.plotly_chart(fig, use_container_width=True)
+
