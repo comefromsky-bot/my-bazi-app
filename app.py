@@ -213,6 +213,16 @@ def get_55_shen_sha(bazi, pillar_idx):
     lx = {'甲':'酉','乙':'戌','丙':'未','丁':'申','戊':'巳','己':'午','庚':'午','辛':'卯','壬':'亥','癸':'子'}
     if t_b == lx.get(d_s): found.append("流霞")
 
+    # 32. 勾絞煞 / 33. 元辰 (大耗)
+    if t_b == BRANCHES[(BRANCHES.index(y_b)+3)%12] or t_b == BRANCHES[(BRANCHES.index(y_b)-3)%12]: found.append("勾絞煞")
+    if t_b == {'子':'未','丑':'申','寅':'酉','卯':'戌','辰':'亥','巳':'子','午':'丑','未':'寅','申':'卯','酉':'辰','戌':'巳','亥':'午'}.get(y_b): found.append("元辰")
+
+    # 34. 孤辰 / 35. 寡宿
+    if y_b in ['寅','卯','辰'] and t_b == '巳': found.append("孤辰")
+    if y_b in ['寅','卯','辰'] and t_b == '丑': found.append("寡宿")
+    if y_b in ['巳','午','未'] and t_b == '申': found.append("孤辰")
+    if y_b in ['巳','午','未'] and t_b == '辰': found.append("寡宿")
+    
     # 42-44 喪門, 弔客, 披麻
     if t_b == BRANCHES[(BRANCHES.index(y_b)+2)%12]: found.append("喪門")
     if t_b == BRANCHES[(BRANCHES.index(y_b)-2)%12]: found.append("弔客")
@@ -339,3 +349,4 @@ if input_text:
         st.markdown(render_professional_chart(bazi), unsafe_allow_html=True)
     else:
         st.error("格式錯誤：請確保輸入四組完整的干支。")
+
