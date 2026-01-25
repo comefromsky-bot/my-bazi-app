@@ -45,13 +45,6 @@ RELATION_MAP = {
     ('水', '水'): '同我', ('水', '木'): '我生', ('水', '火'): '我剋', ('水', '土'): '剋我', ('水', '金'): '生我',
 }
 
-SHEN_SHA_DATA = {
-    "天乙貴人": "命中最吉之神，逢凶化吉，易得貴人助。",
-    "桃花": "主人緣佳、具魅力，異性緣豐富。",
-    "驛馬": "主變動、外向、奔波，適合遠方發展。",
-    "天醫": "主健康與醫學有緣，適合從事療癒相關行業。"
-}
-
 @dataclass
 class Bazi:
     year: str; month: str; day: str; hour: str
@@ -59,7 +52,7 @@ class Bazi:
         self.stems = [self.year[0], self.month[0], self.day[0], self.hour[0]]
         self.branches = [self.year[1], self.month[1], self.day[1], self.hour[1]]
 
-# --- 2. 核心邏輯 ---
+# --- 2. 邏輯函數 ---
 def get_ten_god(me_stem, target_stem):
     if not me_stem or not target_stem: return ""
     me = STEM_PROPS[me_stem]
@@ -75,34 +68,8 @@ def get_ten_god(me_stem, target_stem):
     }
     return gods[relation][same_polarity]
 
-def get_nayin(pillar):
-    return NAYIN_DATA.get(pillar, "未知")
-
-def parse_text(text):
-    matches = re.findall(r'[甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥]', text)
-    return Bazi(matches[0], matches[1], matches[2], matches[3]) if len(matches) >= 4 else None
-
-def calc_elements(bazi):
-    scores = {"木": 0, "火": 0, "土": 0, "金": 0, "水": 0}
-    for s in bazi.stems: scores[ELEMENTS_MAP[s]] += 1.0
-    for b in bazi.branches:
-        hidden = HIDDEN_STEMS.get(b, [])
-        for i, h in enumerate(hidden):
-            scores[ELEMENTS_MAP[h]] += (1.0 if i == 0 else 0.3)
-    return scores
-
-def get_shen_sha(bazi):
-    found = []
-    mapping = {'甲':['丑','未'], '乙':['子','申'], '丙':['亥','酉'], '丁':['亥','酉'], '戊':['丑','未'], '己':['子','申'], '庚':['丑','未'], '辛':['午','寅'], '壬':['卯','巳'], '癸':['卯','巳']}
-    targets = mapping.get(bazi.stems[2], [])
-    for b in bazi.branches:
-        if b in targets: found.append("天乙貴人"); break
-    return list(set(found))
-
-# --- 3. 專業排盤渲染 (年、月、日、時 順序) ---
 def render_professional_chart(bazi):
     me_stem = bazi.stems[2]
-    # 【關鍵修正】：調整順序為 年、月、日、時
     pillar_data = [
         {"title": "年柱", "p": bazi.year, "s": bazi.stems[0], "b": bazi.branches[0]},
         {"title": "月柱", "p": bazi.month,"s": bazi.stems[1], "b": bazi.branches[1]},
@@ -112,88 +79,78 @@ def render_professional_chart(bazi):
 
     results = []
     for p in pillar_data:
+        hidden_stems = HIDDEN_STEMS.get(p["b"], [])
+        hidden_info = [{"stem": s, "god": get_ten_god(me_stem, s)} for s in hidden_stems]
         results.append({
             "title": p["title"],
             "ten_god": get_ten_god(me_stem, p["s"]) if p["title"] != "日柱" else "日主",
-            "nayin": get_nayin(p["p"]),
+            "nayin": NAYIN_DATA.get(p["p"], "未知"),
             "stem": p["s"],
-            "branch": p["b"]
+            "branch": p["b"],
+            "hidden": hidden_info
         })
 
     html = f"""
     <div style="overflow-x: auto; margin: 20px 0;">
-        <table style="width:100%; border-collapse: collapse; text-align: center; border: 1.5px solid #333; font-family: 'Microsoft JhengHei', sans-serif;">
-            <tr style="background-color: #f5f5f5; font-size: 14px;">
-                <td style="padding: 12px; border: 1px solid #ddd; width: 23%;">{results[0]['title']}</td>
-                <td style="padding: 12px; border: 1px solid #ddd; width: 23%;">{results[1]['title']}</td>
-                <td style="padding: 12px; border: 1px solid #ddd; width: 23%; background-color: #fff5f5;">{results[2]['title']}</td>
-                <td style="padding: 12px; border: 1px solid #ddd; width: 23%;">{results[3]['title']}</td>
-                <td style="background: #eee; width: 80px; border: 1px solid #ddd;">位置</td>
+        <table style="width:100%; border-collapse: collapse; text-align: center; border: 2px solid #333; font-family: 'Microsoft JhengHei';">
+            <tr style="background-color: #f1f1f1; font-weight: bold;">
+                <td style="width: 100px; background: #eee; border: 1px solid #ddd; padding: 10px;">位置</td>
+                <td style="border: 1px solid #ddd;">{results[0]['title']}</td>
+                <td style="border: 1px solid #ddd;">{results[1]['title']}</td>
+                <td style="border: 1px solid #ddd; background-color: #fff5f5;">{results[2]['title']}</td>
+                <td style="border: 1px solid #ddd;">{results[3]['title']}</td>
             </tr>
-            <tr style="font-size: 14px;">
-                <td style="padding: 12px; border: 1px solid #ddd;">{results[0]['ten_god']}</td>
-                <td style="padding: 12px; border: 1px solid #ddd;">{results[1]['ten_god']}</td>
-                <td style="padding: 12px; border: 1px solid #ddd; color: #d63031; font-weight: bold;">{results[2]['ten_god']}</td>
-                <td style="padding: 12px; border: 1px solid #ddd;">{results[3]['ten_god']}</td>
-                <td style="background: #eee; border: 1px solid #ddd;">十神</td>
+            <tr>
+                <td style="background: #eee; border: 1px solid #ddd; padding: 10px; font-weight: bold;">十神</td>
+                <td style="border: 1px solid #ddd;">{results[0]['ten_god']}</td>
+                <td style="border: 1px solid #ddd;">{results[1]['ten_god']}</td>
+                <td style="border: 1px solid #ddd; color: #d63031; font-weight: bold;">{results[2]['ten_god']}</td>
+                <td style="border: 1px solid #ddd;">{results[3]['ten_god']}</td>
             </tr>
-            <tr style="font-size: 36px; font-weight: 500;">
-                <td style="padding: 20px; border: 1px solid #ddd;">{results[0]['stem']}</td>
-                <td style="padding: 20px; border: 1px solid #ddd;">{results[1]['stem']}</td>
-                <td style="padding: 20px; border: 1px solid #ddd; color: #d63031;">{results[2]['stem']}</td>
-                <td style="padding: 20px; border: 1px solid #ddd;">{results[3]['stem']}</td>
-                <td rowspan="2" style="font-size: 16px; background: #eee; border: 1px solid #ddd; letter-spacing: 5px;">八字</td>
+            <tr style="font-size: 32px; font-weight: bold;">
+                <td style="background: #eee; border: 1px solid #ddd; padding: 10px; font-size: 16px;">天干</td>
+                <td style="border: 1px solid #ddd;">{results[0]['stem']}</td>
+                <td style="border: 1px solid #ddd;">{results[1]['stem']}</td>
+                <td style="border: 1px solid #ddd; color: #d63031;">{results[2]['stem']}</td>
+                <td style="border: 1px solid #ddd;">{results[3]['stem']}</td>
             </tr>
-            <tr style="font-size: 36px; font-weight: 500;">
-                <td style="padding: 20px; border: 1px solid #ddd;">{results[0]['branch']}</td>
-                <td style="padding: 20px; border: 1px solid #ddd;">{results[1]['branch']}</td>
-                <td style="padding: 20px; border: 1px solid #ddd;">{results[2]['branch']}</td>
-                <td style="padding: 20px; border: 1px solid #ddd;">{results[3]['branch']}</td>
+            <tr style="font-size: 32px; font-weight: bold;">
+                <td style="background: #eee; border: 1px solid #ddd; padding: 10px; font-size: 16px;">地支</td>
+                <td style="border: 1px solid #ddd;">{results[0]['branch']}</td>
+                <td style="border: 1px solid #ddd;">{results[1]['branch']}</td>
+                <td style="border: 1px solid #ddd;">{results[2]['branch']}</td>
+                <td style="border: 1px solid #ddd;">{results[3]['branch']}</td>
+            </tr>
+            <tr style="font-size: 14px; background-color: #fafafa;">
+                <td style="background: #eee; border: 1px solid #ddd; padding: 10px; font-weight: bold;">地支藏干</td>
+                {"".join([f'<td style="border: 1px solid #ddd; padding: 5px;">{" ".join([h["stem"] for h in r["hidden"]])}</td>' for r in results])}
+            </tr>
+            <tr style="font-size: 12px; color: #666;">
+                <td style="background: #eee; border: 1px solid #ddd; padding: 10px; font-weight: bold;">藏干十神</td>
+                {"".join([f'<td style="border: 1px solid #ddd; padding: 5px;">{" ".join([h["god"] for h in r["hidden"]])}</td>' for r in results])}
             </tr>
             <tr style="font-size: 13px; color: #777;">
-                <td style="padding: 10px; border: 1px solid #ddd;">{results[0]['nayin']}</td>
-                <td style="padding: 10px; border: 1px solid #ddd;">{results[1]['nayin']}</td>
-                <td style="padding: 10px; border: 1px solid #ddd;">{results[2]['nayin']}</td>
-                <td style="padding: 10px; border: 1px solid #ddd;">{results[3]['nayin']}</td>
-                <td style="background: #eee; border: 1px solid #ddd;">納音</td>
+                <td style="background: #eee; border: 1px solid #ddd; padding: 10px; font-weight: bold;">納音</td>
+                <td style="border: 1px solid #ddd;">{results[0]['nayin']}</td>
+                <td style="border: 1px solid #ddd;">{results[1]['nayin']}</td>
+                <td style="border: 1px solid #ddd;">{results[2]['nayin']}</td>
+                <td style="border: 1px solid #ddd;">{results[3]['nayin']}</td>
             </tr>
         </table>
     </div>
     """
     return html
 
-# --- 4. Streamlit 介面 ---
-st.set_page_config(page_title="AI 八字命盤系統", layout="wide")
-st.title("🔮 AI 八字全方位解析系統")
-
-with st.sidebar:
-    st.header("⚙️ 設定")
-    api_key = st.text_input("輸入 Gemini API Key", type="password")
+# --- 3. Streamlit 介面 ---
+st.set_page_config(page_title="專業 AI 八字命盤", layout="wide")
+st.title("🔮 專業 AI 八字全方位解析系統")
 
 input_text = st.text_input("請輸入八字（例：乙巳 戊寅 辛亥 壬辰）", "乙巳 戊寅 辛亥 壬辰")
 
 if input_text:
-    bazi = parse_text(input_text)
-    if bazi:
-        st.subheader("📋 命盤解析結果 (年、月、日、時)")
+    matches = re.findall(r'[甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥]', input_text)
+    if len(matches) >= 4:
+        bazi = Bazi(matches[0], matches[1], matches[2], matches[3])
         st.markdown(render_professional_chart(bazi), unsafe_allow_html=True)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.subheader("✨ 神煞分析")
-            ss = get_shen_sha(bazi)
-            if ss:
-                for s in ss:
-                    with st.expander(f"✅ {s}", expanded=True):
-                        st.write(SHEN_SHA_DATA.get(s, ""))
-            else:
-                st.info("目前格局未觸發特定神煞")
-        
-        with col2:
-            st.subheader("📊 五行能量")
-            scores = calc_elements(bazi)
-            fig = go.Figure(go.Scatterpolar(r=list(scores.values())+[list(scores.values())[0]], theta=list(scores.keys())+[list(scores.keys())[0]], fill='toself'))
-            fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 5])), showlegend=False)
-            st.plotly_chart(fig, use_container_width=True)
     else:
-        st.error("格式錯誤，請輸入完整的四柱干支。")
+        st.error("請輸入正確的四柱干支格式。")
