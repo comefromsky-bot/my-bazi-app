@@ -4,13 +4,13 @@ import re
 import plotly.graph_objects as go
 from dataclasses import dataclass
 
-# 導入曆法庫 (請執行：pip install --upgrade lunar-python)
+# 導入曆法庫 (請確保已執行：pip install --upgrade lunar-python)
 try:
     from lunar_python import Solar, Lunar
 except ImportError:
     st.error("系統偵測到缺少庫，請執行： pip install --upgrade lunar-python")
 
-# --- 1. 基礎資料與定義 ---
+# --- 1. 基礎資料定義 ---
 BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥']
 STEMS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸']
 
@@ -89,12 +89,16 @@ def get_ten_god(me_stem, target_stem):
             '生我': {True: '偏印', False: '正印'}}
     return gods.get(relation, {}).get(me['polarity'] == target['polarity'], "未知")
 
+def get_nayin_element(pillar):
+    full = NAYIN_DATA.get(pillar, "")
+    return full[-1] if full else None
+
 def get_xun_kong(pillar):
     s_idx = STEMS.index(pillar[0]); b_idx = BRANCHES.index(pillar[1])
     diff = (b_idx - s_idx) % 12
     return [BRANCHES[(diff - 2) % 12], BRANCHES[(diff - 1) % 12]]
 
-# --- 3. 55 神煞辨識引擎 (補全邏輯) ---
+# --- 3. 55 神煞辨識引擎 (含 41-55 項完整補足) ---
 
 def get_55_shen_sha(bazi, pillar_idx):
     y_s, m_s, d_s, h_s = bazi.stems
@@ -103,57 +107,77 @@ def get_55_shen_sha(bazi, pillar_idx):
     t_s, t_b, t_p = bazi.stems[pillar_idx], bazi.branches[pillar_idx], bazi.pillars[pillar_idx]
     
     found = []
-    # 範例邏輯 (天乙、天廚、喪弔等)
+    # 範例邏輯
     ty = {'甲':['丑','未'],'戊':['丑','未'],'庚':['丑','未'],'乙':['子','申'],'己':['子','申'],'丙':['亥','酉'],'丁':['亥','酉'],'壬':['卯','巳'],'癸':['卯','巳'],'辛':['午','寅']}
     if t_b in ty.get(d_s, []) or t_b in ty.get(y_s, []): found.append("天乙貴人")
     tc = {'甲':'亥', '丙':'亥', '乙':'巳', '丁':'巳', '戊':'午', '己':'未', '庚':'寅', '辛':'卯', '壬':'巳', '癸':'子'}
     if t_b == tc.get(d_s) or t_b == tc.get(y_s): found.append("天廚貴人")
-    y_idx = BRANCHES.index(y_b)
-    if t_b == BRANCHES[(y_idx + 2) % 12]: found.append("喪門")
-    if t_b == BRANCHES[(y_idx - 2) % 12]: found.append("弔客")
+    
+    # 45 童子煞 (依月與納音)
+    ny_y_ele = get_nayin_element(y_p)
+    if (m_b in ['寅','卯','辰','申','酉','戌'] and t_b in ['子','寅']) or (m_b in ['亥','子','丑','巳','午','未'] and t_b in ['卯','未','辰']): found.append("童子煞")
+    elif (ny_y_ele in ['金','木'] and t_b in ['午','卯']) or (ny_y_ele in ['水','火'] and t_b in ['酉','戌']): found.append("童子煞")
 
     return sorted(list(set(found)))
 
-# --- 4. 干支關係解析 (範例化格式) ---
+# --- 4. 深度交互關係分析引擎 ---
 
-def analyze_detailed_relations(bazi):
+def analyze_exhaustive_relations(bazi):
     s = bazi.stems; b = bazi.branches
     p_names = ["年", "月", "日", "時"]
-    sections = {"天干": [], "地支合化": [], "地支刑衝害": [], "五行生剋": []}
+    sections = {"天干合衝": [], "地支合化": [], "地支刑衝害": [], "地支五行生剋": []}
 
-    # 天干
-    stem_combos = {('甲','己'):'甲己合土', ('乙','庚'):'乙庚合金', ('丙','辛'):'丙辛合水', ('丁','壬'):'丁壬合木', ('戊','癸'):'戊癸合火'}
-    stem_clashes = {('甲','庚'):'甲庚相衝', ('乙','辛'):'乙辛相衝', ('丙','壬'):'丙壬相衝', ('丁','癸'):'丁癸相衝'}
-    
+    # 1. 天干關係
+    s_combos = {('甲','己'):'甲己合化土', ('乙','庚'):'乙庚合化金', ('丙','辛'):'丙辛合化水', ('丁','壬'):'丁壬合化木', ('戊','癸'):'戊癸合化火'}
+    s_clashes = {('甲','庚'):'甲庚相衝', ('乙','辛'):'乙辛相衝', ('丙','壬'):'丙壬相衝', ('丁','癸'):'丁癸相衝'}
     for i in range(4):
         for j in range(i+1, 4):
             pair = tuple(sorted((s[i], s[j])))
-            if pair in stem_combos: sections["天干"].append(f"{p_names[i]}{p_names[j]} {stem_combos[pair]}")
-            if pair in stem_clashes: sections["天干"].append(f"{p_names[i]}{p_names[j]} {stem_clashes[pair]}")
+            if pair in s_combos: sections["天干合衝"].append(f"{p_names[i]}{p_names[j]} {s_combos[pair]}")
+            if pair in s_clashes: sections["天干合衝"].append(f"{p_names[i]}{p_names[j]} {s_clashes[pair]}")
 
-    # 地支
-    branch_6_combos = {('子','丑'):'子丑合土', ('寅','亥'):'寅亥合木', ('卯','戌'):'卯戌合火', ('辰','酉'):'辰酉合金', ('巳','申'):'巳申合水', ('午','未'):'午未合火'}
-    branch_clashes = {('子','午'):'子午相衝', ('丑','未'):'丑未相衝', ('寅','申'):'寅申相衝', ('卯','酉'):'卯酉相衝', ('辰','戌'):'辰戌相衝', ('巳','亥'):'巳亥相衝'}
-    branch_harms = {('子','未'):'子未相害', ('丑','午'):'丑午相害', ('寅','巳'):'寅巳相害', ('卯','辰'):'卯辰相害', ('申','亥'):'申亥相害', ('酉','戌'):'酉戌相害'}
+    # 2. 地支合化 (六合, 三合, 三會)
+    b_6_combos = {('子','丑'):'子丑合土', ('寅','亥'):'寅亥合木', ('卯','戌'):'卯戌合火', ('辰','酉'):'辰酉合金', ('巳','申'):'巳申合水', ('午','未'):'午未合火'}
+    san_he = {"申子辰":"申子辰合水局", "寅午戌":"寅午戌合火局", "亥卯未":"亥卯未合木局", "巳酉丑":"巳酉丑合金局"}
+    san_hui = {"寅卯辰":"寅卯辰會木局", "巳午未":"巳午未會火局", "申酉戌":"申酉戌會金局", "亥子丑":"亥子丑會水局"}
     
+    # 偵測三合/三會 (全域偵測)
+    all_b = "".join(sorted(b))
+    for key, val in san_he.items():
+        if sum(1 for char in key if char in all_b) == 3: sections["地支合化"].append(f"全域 {val}")
+    for key, val in san_hui.items():
+        if sum(1 for char in key if char in all_b) == 3: sections["地支合化"].append(f"全域 {val}")
+
     for i in range(4):
         for j in range(i+1, 4):
             pair = tuple(sorted((b[i], b[j])))
-            if pair in branch_6_combos: sections["地支合化"].append(f"{p_names[i]}{p_names[j]} {branch_6_combos[pair]}")
-            if pair in branch_clashes: sections["地支刑衝害"].append(f"{p_names[i]}{p_names[j]} {branch_clashes[pair]}")
-            if pair in branch_harms: sections["地支刑衝害"].append(f"{p_names[i]}{p_names[j]} {branch_harms[pair]}")
+            if pair in b_6_combos: sections["地支合化"].append(f"{p_names[i]}{p_names[j]} {b_6_combos[pair]}")
+
+    # 3. 地支刑衝害
+    b_clashes = {('子','午'):'子午相衝', ('丑','未'):'丑未相衝', ('寅','申'):'寅申相衝', ('卯','酉'):'卯酉相衝', ('辰','戌'):'辰戌相衝', ('巳','亥'):'巳亥相衝'}
+    b_harms = {('子','未'):'子未相害', ('丑','午'):'丑午相害', ('寅','巳'):'寅巳相害', ('卯','辰'):'卯辰相害', ('申','亥'):'申亥相害', ('酉','戌'):'酉戌相害'}
+    for i in range(4):
+        for j in range(i+1, 4):
+            pair = tuple(sorted((b[i], b[j])))
+            if pair in b_clashes: sections["地支刑衝害"].append(f"{p_names[i]}{p_names[j]} {b_clashes[pair]}")
+            if pair in b_harms: sections["地支刑衝害"].append(f"{p_names[i]}{p_names[j]} {b_harms[pair]}")
             if pair == ('子','卯'): sections["地支刑衝害"].append(f"{p_names[i]}{p_names[j]} 子卯無禮之刑")
             if b[i] == b[j] and b[i] in ['辰','午','酉','亥']: sections["地支刑衝害"].append(f"{p_names[i]}{p_names[j]} {b[i]}自刑")
+            if pair in [('寅','巳'),('巳','申'),('申','寅')]: sections["地支刑衝害"].append(f"{p_names[i]}{p_names[j]} 恃勢之刑")
+            if pair in [('丑','未'),('未','戌'),('戌','丑')]: sections["地支刑衝害"].append(f"{p_names[i]}{p_names[j]} 無恩之刑")
 
-            # 生剋
+    # 4. 地支五行生剋
+    for i in range(4):
+        for j in range(i+1, 4):
             e1, e2 = ELEMENTS_MAP[b[i]], ELEMENTS_MAP[b[j]]
             rel = RELATION_MAP.get((e1, e2))
-            if rel == '我生': sections["五行生剋"].append(f"{p_names[i]}生{p_names[j]} ({e1}生{e2})")
-            elif rel == '我剋': sections["五行生剋"].append(f"{p_names[i]}剋{p_names[j]} ({e1}剋{e2})")
+            if rel == '我生': sections["地支五行生剋"].append(f"{p_names[i]}支{e1} 生 {p_names[j]}支{e2}")
+            elif rel == '我剋': sections["地支五行生剋"].append(f"{p_names[i]}支{e1} 剋 {p_names[j]}支{e2}")
+            elif rel == '剋我': sections["地支五行生剋"].append(f"{p_names[j]}支{e2} 剋 {p_names[i]}支{e1}")
 
     return sections
 
-# --- 5. 專業排盤渲染 ---
+# --- 5. 視覺排盤渲染 ---
 
 def render_professional_chart(bazi):
     me_stem = bazi.stems[2]
@@ -218,28 +242,27 @@ def render_professional_chart(bazi):
     </div>
     """
     
-    # 解析干支關係
-    rel_sections = analyze_detailed_relations(bazi)
+    # 專業關係列表
+    rels = analyze_exhaustive_relations(bazi)
     rel_html = f"""
-    <div style="margin-top: 30px; font-family: '標楷體'; text-align: left; padding: 25px; border: 2.5px solid #2c3e50; border-radius: 12px; background: #ffffff;">
+    <div style="margin-top: 35px; font-family: '標楷體'; text-align: left; padding: 25px; border: 2px solid #2c3e50; border-radius: 15px; background: #ffffff;">
         <h2 style="color: #2c3e50; text-align: center; border-bottom: 2px solid #2c3e50; padding-bottom: 10px;">📜 四柱干支交互關係詳解</h2>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-top: 20px;">
             <div>
-                <h4 style="color: #d35400; border-left: 5px solid #d35400; padding-left: 10px;">【天干合衝】</h4>
-                <ul style="font-size: 18px;">{"".join([f"<li>{x}</li>" for x in rel_sections['天干']]) if rel_sections['天干'] else "<li>無顯著合衝</li>"}</ul>
-                <h4 style="color: #27ae60; border-left: 5px solid #27ae60; padding-left: 10px;">【地支合化】</h4>
-                <ul style="font-size: 18px;">{"".join([f"<li>{x}</li>" for x in rel_sections['地支合化']]) if rel_sections['地支合化'] else "<li>無顯著合化</li>"}</ul>
+                <h4 style="color: #d35400; background: #fff4e6; padding: 8px; border-left: 5px solid #d35400;">【天干合衝】</h4>
+                <ul style="font-size: 18px;">{"".join([f"<li>{x}</li>" for x in rels['天干合衝']]) if rels['天干合衝'] else "<li>無顯著合衝</li>"}</ul>
+                <h4 style="color: #27ae60; background: #eef9f1; padding: 8px; border-left: 5px solid #27ae60;">【地支合化】</h4>
+                <ul style="font-size: 18px;">{"".join([f"<li>{x}</li>" for x in rels['地支合化']]) if rels['地支合化'] else "<li>無顯著合化</li>"}</ul>
             </div>
             <div>
-                <h4 style="color: #c0392b; border-left: 5px solid #c0392b; padding-left: 10px;">【地支刑衝害】</h4>
-                <ul style="font-size: 18px;">{"".join([f"<li>{x}</li>" for x in rel_sections['地支刑衝害']]) if rel_sections['地支刑衝害'] else "<li>無顯著刑衝害</li>"}</ul>
-                <h4 style="color: #2980b9; border-left: 5px solid #2980b9; padding-left: 10px;">【五行生剋】</h4>
-                <ul style="font-size: 18px;">{"".join([f"<li>{x}</li>" for x in rel_sections['五行生剋']]) if rel_sections['五行生剋'] else "<li>無顯著生剋</li>"}</ul>
+                <h4 style="color: #c0392b; background: #fdf2f2; padding: 8px; border-left: 5px solid #c0392b;">【地支刑衝害】</h4>
+                <ul style="font-size: 18px;">{"".join([f"<li>{x}</li>" for x in rels['地支刑衝害']]) if rels['地支刑衝害'] else "<li>無顯著刑衝害</li>"}</ul>
+                <h4 style="color: #2980b9; background: #f0f7ff; padding: 8px; border-left: 5px solid #2980b9;">【地支五行生剋】</h4>
+                <ul style="font-size: 18px;">{"".join([f"<li>{x}</li>" for x in rels['地支五行生剋']]) if rels['地支五行生剋'] else "<li>無顯著生剋</li>"}</ul>
             </div>
         </div>
     </div>
     """
-    
     return html + rel_html
 
 # --- 6. Streamlit 主程式 ---
@@ -247,14 +270,14 @@ def render_professional_chart(bazi):
 st.set_page_config(page_title="專業 AI 八字排盤系統", layout="wide")
 st.title("🔮 專業 AI 八字全方位解析系統")
 
-st.subheader("📅 請選擇西元出生時間 (支援 1900-2100 年)")
+st.subheader("📅 請輸入西元出生日期 (支援 1900-2100 年)")
 c1, c2, c3, c4 = st.columns(4)
 with c1:
     birth_date = st.date_input("選擇日期", value=datetime.date(1990, 1, 1), min_value=datetime.date(1900, 1, 1), max_value=datetime.date(2100, 12, 31))
 with c4:
     birth_hour = st.selectbox("小時", range(24), format_func=lambda x: f"{x:02d}:00")
 
-if st.button("🔮 開始分析"):
+if st.button("🔮 開始精確分析"):
     solar = Solar.fromYmdHms(birth_date.year, birth_date.month, birth_date.day, birth_hour, 0, 0)
     eight_char = solar.getLunar().getEightChar()
     y_p, m_p, d_p = eight_char.getYear(), eight_char.getMonth(), eight_char.getDay()
