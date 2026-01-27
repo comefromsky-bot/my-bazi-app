@@ -143,31 +143,51 @@ def get_55_shen_sha(bazi, pillar_idx):
     if t_b == yr.get(d_s): found.append("羊刃")
     if t_b == {'子':'午','午':'子','丑':'未','未':'丑','寅':'申','申':'寅','卯':'酉','酉':'卯','辰':'戌','戌':'辰','巳':'亥','亥':'巳'}.get(yr.get(d_s)): found.append("飛刃")
 
-    # 10-11, 27-28 驛馬, 咸池, 將星, 華蓋
+    # 10-11, 27 驛馬, 咸池, 將星
     def star_check(ref_b):
         res = []
         if ref_b in ['申','子','辰']:
             if t_b == '寅': res.append("驛馬")
             if t_b == '酉': res.append("咸池")
             if t_b == '子': res.append("將星")
-            if t_b == '辰': res.append("華蓋")
         if ref_b in ['寅','午','戌']:
             if t_b == '申': res.append("驛馬")
             if t_b == '卯': res.append("咸池")
             if t_b == '午': res.append("將星")
-            if t_b == '戌': res.append("華蓋")
         if ref_b in ['巳','酉','丑']:
             if t_b == '亥': res.append("驛馬")
             if t_b == '午': res.append("咸池")
             if t_b == '酉': res.append("將星")
-            if t_b == '丑': res.append("華蓋")
         if ref_b in ['亥','卯','未']:
             if t_b == '巳': res.append("驛馬")
             if t_b == '子': res.append("咸池")
             if t_b == '卯': res.append("將星")
-            if t_b == '未': res.append("華蓋")
         return res
     found.extend(star_check(y_b)); found.extend(star_check(d_b))
+
+    # 28 華蓋
+    # 定義華蓋的查找字典：Key 為年支或日支，Value 為對應的華蓋地支
+    # 邏輯：寅午戌見戌、巳酉丑見丑、申子辰見辰、亥卯未見未
+    hua_gai_map = {
+        '寅': '戌', '午': '戌', '戌': '戌',
+        '巳': '丑', '酉': '丑', '丑': '丑',
+        '申': '辰', '子': '辰', '辰': '辰',
+        '亥': '未', '卯': '未', '未': '未'
+    }
+
+    # 1. 以年支為基準查找
+    target_from_year = hua_gai_map.get(y_b)
+    
+    # 2. 以日支為基準查找
+    target_from_day = hua_gai_map.get(d_b)
+
+    # 判斷當前柱的地支 (t_b) 是否命中
+    if t_b == target_from_year or t_b == target_from_day:
+        # 避免重複添加
+        if "華蓋" not in shen_sha:
+            shen_sha.append("華蓋")
+
+    
 
     # 12. 紅鸞 / 13. 天喜 / 15-16, 37 劫煞, 災煞, 亡神
     hl_map = {'子':'卯','丑':'寅','寅':'丑','卯':'子','辰':'亥','巳':'戌','午':'酉','未':'申','申':'未','酉':'午','戌':'巳','亥':'辰'}
@@ -391,4 +411,5 @@ if st.button("🔮 開始分析"):
     h_p = getattr(eight_char, 'getHour', getattr(eight_char, 'getTime', lambda: "時柱錯誤"))()
     st.success(f"✅ 轉換成功：{y_p} {m_p} {d_p} {h_p}")
     st.markdown(render_professional_chart(Bazi(y_p, m_p, d_p, h_p)), unsafe_allow_html=True)
+
 
