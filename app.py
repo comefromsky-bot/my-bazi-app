@@ -252,11 +252,22 @@ def get_55_shen_sha(bazi, pillar_idx):
     if t_b == BRANCHES[(BRANCHES.index(y_b)+3)%12]: found.append("披麻")
 
     # 45. 童子煞
-    ny_y_ele = get_nayin_element(y_p)
-    if (m_b in ['寅','卯','辰','申','酉','戌'] and t_b in ['子','寅']) or (m_b in ['巳','午','未','亥','子','丑'] and t_b in ['卯','未','辰']):
-        found.append("童子煞")
-    elif (ny_y_ele in ['金','木'] and t_b in ['午','卯']) or (ny_y_ele in ['水','火'] and t_b in ['酉','戌']) or (ny_y_ele == '土' and t_b in ['辰','巳']):
-        found.append("童子煞")
+    y_nayin = NAYIN_DATA.get(bazi.pillars[0], "")
+    y_ele = y_nayin[-1] if y_nayin else ""
+    
+    # A. 季節查法 (以月支為主)
+    spring_autumn = ['寅','卯','辰','申','酉','戌']
+    summer_winter = ['巳','午','未','亥','子','丑']
+    if m_b in spring_autumn and t_b in ['寅','子']: found.append("童子煞")
+    if m_b in summer_winter and t_b in ['卯','未','辰']: found.append("童子煞")
+    
+    # B. 納音/年干查法
+    if (y_ele in ['金','木']) and t_b in ['午','卯']:
+        if "童子煞" not in found: found.append("童子煞")
+    if (y_ele in ['水','火']) and t_b in ['酉','戌']:
+        if "童子煞" not in found: found.append("童子煞")
+    if y_ele == '土' and t_b in ['辰','巳']:
+        if "童子煞" not in found: found.append("童子煞")
 
     # 46-51, 53-54 (十靈、八專、六秀、九醜、四廢、十惡大敗、陰差陽錯、孤鸞)
     if pillar_idx == 2:
@@ -423,6 +434,7 @@ if st.button("🔮 開始分析"):
     h_p = getattr(eight_char, 'getHour', getattr(eight_char, 'getTime', lambda: "時柱錯誤"))()
     st.success(f"✅ 轉換成功：{y_p} {m_p} {d_p} {h_p}")
     st.markdown(render_professional_chart(Bazi(y_p, m_p, d_p, h_p)), unsafe_allow_html=True)
+
 
 
 
