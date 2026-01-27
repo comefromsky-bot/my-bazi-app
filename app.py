@@ -183,7 +183,8 @@ def get_55_shen_sha(bazi, pillar_idx):
         if t_b == hua_gai_map.get(d_b):
             if "華蓋" not in found:
                 found.append("華蓋")
-
+    
+        
     # 12. 紅鸞 / 13. 天喜 / 15-16, 37 劫煞, 災煞, 亡神
     hl_map = {'子':'卯','丑':'寅','寅':'丑','卯':'子','辰':'亥','巳':'戌','午':'酉','未':'申','申':'未','酉':'午','戌':'巳','亥':'辰'}
     tx_map = {'子':'酉','丑':'申','寅':'未','卯':'午','辰':'巳','巳':'辰','午':'卯','未':'寅','申':'丑','酉':'子','戌':'亥','亥':'戌'}
@@ -270,8 +271,24 @@ def get_55_shen_sha(bazi, pillar_idx):
         if (m_b in ['寅','卯','辰'] and t_p == '戊寅') or (m_b in ['巳','午','未'] and t_p == '甲午') or (m_b in ['申','酉','戌'] and t_p == '戊申') or (m_b in ['亥','子','丑'] and t_p == '甲子'): found.append("天赦日")
 
     # 52. 天羅地網
-    if (ny_y_ele == '火' and t_b in ['戌','亥']): found.append("天羅")
-    if (ny_y_ele in ['水','土'] and t_b in ['辰','巳']): found.append("地網")
+    y_nayin = NAYIN_DATA.get(bazi.pillars[0], "")
+    nayin_ele = y_nayin[-1] if y_nayin else ""
+    
+    # 判定命主屬性
+    is_fire_life = (nayin_ele == '火' or y_s in ['丙', '丁'])
+    is_water_earth_life = (nayin_ele in ['水', '土'] or y_s in ['壬', '癸', '戊', '己'])
+    
+    all_b = bazi.branches
+    has_xu_hai = ('戌' in all_b and '亥' in all_b)
+    has_chen_si = ('辰' in all_b and '巳' in all_b)
+
+    # 天羅 (火命或男性，見戌亥)
+    if (is_fire_life or bazi.gender == "男") and has_xu_hai:
+        if t_b in ['戌', '亥']: found.append("天羅")
+    
+    # 地網 (水土命或女性，見辰巳)
+    if (is_water_earth_life or bazi.gender == "女") and has_chen_si:
+        if t_b in ['辰', '巳']: found.append("地網")
 
     # 55. 拱祿
     if pillar_idx == 3:
@@ -406,6 +423,7 @@ if st.button("🔮 開始分析"):
     h_p = getattr(eight_char, 'getHour', getattr(eight_char, 'getTime', lambda: "時柱錯誤"))()
     st.success(f"✅ 轉換成功：{y_p} {m_p} {d_p} {h_p}")
     st.markdown(render_professional_chart(Bazi(y_p, m_p, d_p, h_p)), unsafe_allow_html=True)
+
 
 
 
