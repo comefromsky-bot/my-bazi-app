@@ -147,13 +147,14 @@ def get_xun_kong(pillar):
 
 # --- 3. 神煞引擎 ---
 
-# --- 修改 get_55_shen_sha 內部的索引 ---
 def get_55_shen_sha(bazi, pillar_idx):
-    # 索引更新：2=年, 3=月, 4=日
+    # 索引調整：0:流年, 1:大運, 2:年, 3:月, 4:日, 5:時
+    # 因此年柱=2, 月柱=3, 日柱=4
     y_s, m_s, d_s = bazi.stems[2], bazi.stems[3], bazi.stems[4]
     y_b, m_b, d_b = bazi.branches[2], bazi.branches[3], bazi.branches[4]
-    y_p, m_p, d_p, h_p = bazi.pillars
-    t_s, t_b, t_p = bazi.stems[pillar_idx], bazi.branches[pillar_idx], bazi.pillars[pillar_idx]
+    
+    t_s, t_b = bazi.stems[pillar_idx], bazi.branches[pillar_idx]
+    if not t_b: return []
     
     found = []
 
@@ -488,22 +489,29 @@ def render_chart(bazi):
 st.set_page_config(page_title="專業 AI 八字解析", layout="wide")
 st.title("🔮 專業 AI 八字全方位解析系統")
 
+# --- 修改 6. 主程式 UI 區塊 ---
 c1, c2, c3, c4 = st.columns(4)
-with c1: birth_date = st.date_input("選擇日期", value=datetime.date(1990, 1, 1), min_value=datetime.date(1900, 1, 1), max_value=datetime.date(2100, 12, 31))
-with c4: gender = st.radio("性別", ["男", "女"], horizontal=True)
-birth_hour = st.selectbox("小時", range(24), format_func=lambda x: f"{x:02d}:00")
+with c1: 
+    birth_date = st.date_input("出生日期", value=datetime.date(1990, 1, 1), min_value=datetime.date(1900, 1, 1))
+with c2: 
+    # 新增這行，解決 NameError: analysis_year
+    analysis_year = st.number_input("分析年份 (流年)", 1900, 2100, 2024) 
+with c3: 
+    gender = st.radio("性別", ["男", "女"], horizontal=True)
+with c4: 
+    birth_hour = st.selectbox("小時", range(24), format_func=lambda x: f"{x:02d}:00")
 
 # --- 在主程式 st.button("🔮 開始精確排盤") 內部修改 ---
 if st.button("🔮 開始精確排盤"):
-    # 1. 基礎八字轉換
+    # 1. 基礎八字計算
     solar = Solar.fromYmdHms(birth_date.year, birth_date.month, birth_date.day, birth_hour, 0, 0)
     lunar = solar.getLunar()
     eight_char = lunar.getEightChar()
     
-    # 2. 計算指定年份的「流年」干支
+    # 2. 計算流年 (取得該年干支)
     liunian_pillar = Solar.fromYmd(analysis_year, 6, 1).getLunar().getYearInGanZhi()
     
-    # 3. 計算「大運」並尋找該年份對應的柱位
+    # 3. 計算大運 (尋找分析年份對應的大運柱)
     da_yun_obj = eight_char.getDaYun(1 if gender == "男" else 0)
     periods = da_yun_obj.getDaYunPeriods()
     current_dayun = "— —"
@@ -512,12 +520,17 @@ if st.button("🔮 開始精確排盤"):
             current_dayun = p.getGanZhi()
             break
             
-    # 4. 建立 Bazi 物件並渲染
-    bazi_data = Bazi(eight_char.getYear(), eight_char.getMonth(), 
-                     eight_char.getDay(), eight_char.getHour(), 
-                     gender, current_dayun, liunian_pillar)
+    # 4. 建立支援 6 柱的 Bazi 物件
+    bazi_data = Bazi(
+        year=eight_char.getYear(), 
+        month=eight_char.getMonth(), 
+        day=eight_char.getDay(), 
+        hour=eight_char.getHour(), 
+        gender=gender, 
+        dayun=current_dayun, 
+        liunian=liunian_pillar
+    )
     st.markdown(render_chart(bazi_data), unsafe_allow_html=True)
-
 
 
 
