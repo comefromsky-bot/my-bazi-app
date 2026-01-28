@@ -148,14 +148,18 @@ def get_xun_kong(pillar):
 # --- 3. 神煞引擎 ---
 
 def get_55_shen_sha(bazi, pillar_idx):
-    # 重新對應索引：2=年, 3=月, 4=日
-    y_s, m_b, d_s = bazi.stems[2], bazi.branches[3], bazi.stems[4]
-    y_b, d_b = bazi.branches[2], bazi.branches[4]
-    t_s, t_b = bazi.stems[pillar_idx], bazi.branches[pillar_idx]
+    # 索引對應：0:流年, 1:大運, 2:年, 3:月, 4:日, 5:時
+    # 提取各柱的天干、地支與完整的干支（Pillars）
+    y_s, m_s, d_s = bazi.stems[2], bazi.stems[3], bazi.stems[4]
+    y_b, m_b, d_b = bazi.branches[2], bazi.branches[3], bazi.branches[4]
     
+    # --- 修正點：補上這行定義，解決 NameError: d_p ---
+    y_p, m_p, d_p = bazi.pillars[2], bazi.pillars[3], bazi.pillars[4]
+    
+    t_s, t_b = bazi.stems[pillar_idx], bazi.branches[pillar_idx]
     if not t_b: return []
+    
     found = []
-    # ... 其餘神煞判定邏輯 (天乙、華蓋等) 保持不變 ...
 
     # 1. 天乙貴人
     ty_map = {'甲':['丑','未'],'戊':['丑','未'],'庚':['丑','未'],'乙':['子','申'],'己':['子','申'],'丙':['亥','酉'],'丁':['亥','酉'],'壬':['卯','巳'],'癸':['卯','巳'],'辛':['午','寅']}
@@ -538,6 +542,7 @@ if st.button("🔮 開始精確排盤"):
         liunian=liunian_pillar
     )
     st.markdown(render_chart(bazi_data), unsafe_allow_html=True)
+
 
 
 
