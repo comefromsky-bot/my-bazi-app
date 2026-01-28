@@ -111,11 +111,12 @@ SHEN_SHA_INFO = {
 }
 @dataclass
 class Bazi:
-    year: str; month: str; day: str; hour: str; gender: str
+    year: str; month: str; day: str; hour: str; gender: str; dayun: str = ""; liunian: str = ""
     def __post_init__(self):
-        self.stems = [self.year[0], self.month[0], self.day[0], self.hour[0]]
-        self.branches = [self.year[1], self.month[1], self.day[1], self.hour[1]]
-        self.pillars = [self.year, self.month, self.day, self.hour]
+        # 擴展為 6 柱：0:流年, 1:大運, 2:年, 3:月, 4:日, 5:時
+        self.pillars = [self.liunian, self.dayun, self.year, self.month, self.day, self.hour]
+        self.stems = [p[0] if p else "" for p in self.pillars]
+        self.branches = [p[1] if p else "" for p in self.pillars]
 
 # --- 2. 核心運算 ---
 
@@ -146,9 +147,11 @@ def get_xun_kong(pillar):
 
 # --- 3. 神煞引擎 ---
 
+# --- 修改 get_55_shen_sha 內部的索引 ---
 def get_55_shen_sha(bazi, pillar_idx):
-    y_s, m_s, d_s, h_s = bazi.stems
-    y_b, m_b, d_b, h_b = bazi.branches
+    # 索引更新：2=年, 3=月, 4=日
+    y_s, m_s, d_s = bazi.stems[2], bazi.stems[3], bazi.stems[4]
+    y_b, m_b, d_b = bazi.branches[2], bazi.branches[3], bazi.branches[4]
     y_p, m_p, d_p, h_p = bazi.pillars
     t_s, t_b, t_p = bazi.stems[pillar_idx], bazi.branches[pillar_idx], bazi.pillars[pillar_idx]
     
@@ -392,9 +395,16 @@ def analyze_all_interactions(bazi):
 
 # --- 5. 渲染 ---
 
+# --- 修改 render_chart 內部的資料定義 ---
 def render_chart(bazi):
-    me_stem = bazi.stems[2]
-    pillar_data = [{"title":"年柱","idx":0},{"title":"月柱","idx":1},{"title":"日柱","idx":2},{"title":"時柱","idx":3}]
+    me_stem = bazi.stems[4] # 修改點：日主現在在索引 4
+    pillar_data = [
+        {"title":"流年","idx":0}, {"title":"十年大運","idx":1},
+        {"title":"年柱","idx":2}, {"title":"月柱","idx":3}, {"title":"日柱","idx":4}, {"title":"時柱","idx":5}
+    ]
+    # ... 其餘渲染邏輯維持，但 HTML 標籤可加入背景色區隔 ...
+    # 建議在 HTML <td> 內加入判定：
+    # background:{"#fff9e6" if r["title"] in ["流年","十年大運"] else "none"}
     results = []
     all_found_ss = set()
     
@@ -483,12 +493,31 @@ with c1: birth_date = st.date_input("選擇日期", value=datetime.date(1990, 1,
 with c4: gender = st.radio("性別", ["男", "女"], horizontal=True)
 birth_hour = st.selectbox("小時", range(24), format_func=lambda x: f"{x:02d}:00")
 
+# --- 在主程式 st.button("🔮 開始精確排盤") 內部修改 ---
 if st.button("🔮 開始精確排盤"):
+    # 1. 基礎八字轉換
     solar = Solar.fromYmdHms(birth_date.year, birth_date.month, birth_date.day, birth_hour, 0, 0)
-    eight_char = solar.getLunar().getEightChar()
-    y_p, m_p, d_p = eight_char.getYear(), eight_char.getMonth(), eight_char.getDay()
-    h_p = getattr(eight_char, 'getHour', getattr(eight_char, 'getTime', lambda: "時柱錯誤"))()
-    st.markdown(render_chart(Bazi(y_p, m_p, d_p, h_p, gender)), unsafe_allow_html=True)
+    lunar = solar.getLunar()
+    eight_char = lunar.getEightChar()
+    
+    # 2. 計算指定年份的「流年」干支
+    liunian_pillar = Solar.fromYmd(analysis_year, 6, 1).getLunar().getYearInGanZhi()
+    
+    # 3. 計算「大運」並尋找該年份對應的柱位
+    da_yun_obj = eight_char.getDaYun(1 if gender == "男" else 0)
+    periods = da_yun_obj.getDaYunPeriods()
+    current_dayun = "— —"
+    for p in periods:
+        if p.getStartYear() <= analysis_year <= p.getEndYear():
+            current_dayun = p.getGanZhi()
+            break
+            
+    # 4. 建立 Bazi 物件並渲染
+    bazi_data = Bazi(eight_char.getYear(), eight_char.getMonth(), 
+                     eight_char.getDay(), eight_char.getHour(), 
+                     gender, current_dayun, liunian_pillar)
+    st.markdown(render_chart(bazi_data), unsafe_allow_html=True)
+
 
 
 
