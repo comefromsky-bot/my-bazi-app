@@ -263,6 +263,15 @@ def get_55_shen_sha(bazi, pillar_idx):
     if t_b == xr_map.get(m_b):
         found.append("血刃")
 
+    # 月德合 (寅午戌見辛...)
+    ydh_map = {'寅': '辛', '午': '辛', '戌': '辛', '申': '丁', '子': '丁', '辰': '丁', '巳': '乙', '酉': '乙', '丑': '乙', '亥': '己', '卯': '己', '未': '己'}
+    if t_s == ydh_map.get(m_b): found.append("月德合")
+
+    # 天德合 (寅月壬、卯月巳...)
+    tdh_map = {'寅': '壬', '卯': '巳', '辰': '丁', '巳': '丙', '午': '寅', '未': '己', '申': '戊', '酉': '亥', '戌': '辛', '亥': '庚', '子': '申', '丑': '乙'}
+    target = tdh_map.get(m_b)
+    if t_s == target or t_b == target: found.append("天德合")
+    
     # 26. 三奇貴人
     if "".join(bazi.stems[:3]) in ["甲戊庚", "乙丙丁", "壬癸辛"]: found.append("三奇貴人")
 
@@ -467,6 +476,7 @@ if st.button("🔮 開始精確排盤"):
     y_p, m_p, d_p = eight_char.getYear(), eight_char.getMonth(), eight_char.getDay()
     h_p = getattr(eight_char, 'getHour', getattr(eight_char, 'getTime', lambda: "時柱錯誤"))()
     st.markdown(render_chart(Bazi(y_p, m_p, d_p, h_p, gender)), unsafe_allow_html=True)
+
 
 
 
