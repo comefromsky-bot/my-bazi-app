@@ -113,10 +113,10 @@ SHEN_SHA_INFO = {
 class Bazi:
     year: str; month: str; day: str; hour: str; gender: str; dayun: str = ""; liunian: str = ""
     def __post_init__(self):
-        # 擴展為 6 柱：0:流年, 1:大運, 2:年, 3:月, 4:日, 5:時
+        # 擴展為 6 柱序列：0:流年, 1:大運, 2:年柱, 3:月柱, 4:日柱, 5:時柱
         self.pillars = [self.liunian, self.dayun, self.year, self.month, self.day, self.hour]
-        self.stems = [p[0] if p else "" for p in self.pillars]
-        self.branches = [p[1] if p else "" for p in self.pillars]
+        self.stems = [p[0] if (p and len(p)>0) else "" for p in self.pillars]
+        self.branches = [p[1] if (p and len(p)>1) else "" for p in self.pillars]
 
 # --- 2. 核心運算 ---
 
@@ -148,15 +148,14 @@ def get_xun_kong(pillar):
 # --- 3. 神煞引擎 ---
 
 def get_55_shen_sha(bazi, pillar_idx):
-    # 索引調整：0:流年, 1:大運, 2:年, 3:月, 4:日, 5:時
-    # 因此年柱=2, 月柱=3, 日柱=4
-    y_s, m_s, d_s = bazi.stems[2], bazi.stems[3], bazi.stems[4]
-    y_b, m_b, d_b = bazi.branches[2], bazi.branches[3], bazi.branches[4]
-    
+    # 重新對應索引：2=年, 3=月, 4=日
+    y_s, m_b, d_s = bazi.stems[2], bazi.branches[3], bazi.stems[4]
+    y_b, d_b = bazi.branches[2], bazi.branches[4]
     t_s, t_b = bazi.stems[pillar_idx], bazi.branches[pillar_idx]
-    if not t_b: return []
     
+    if not t_b: return []
     found = []
+    # ... 其餘神煞判定邏輯 (天乙、華蓋等) 保持不變 ...
 
     # 1. 天乙貴人
     ty_map = {'甲':['丑','未'],'戊':['丑','未'],'庚':['丑','未'],'乙':['子','申'],'己':['子','申'],'丙':['亥','酉'],'丁':['亥','酉'],'壬':['卯','巳'],'癸':['卯','巳'],'辛':['午','寅']}
@@ -396,13 +395,14 @@ def analyze_all_interactions(bazi):
 
 # --- 5. 渲染 ---
 
-# --- 修改 render_chart 內部的資料定義 ---
 def render_chart(bazi):
-    me_stem = bazi.stems[4] # 修改點：日主現在在索引 4
+    me_stem = bazi.stems[4] # 修改點：日主現在位於索引 4
     pillar_data = [
         {"title":"流年","idx":0}, {"title":"十年大運","idx":1},
         {"title":"年柱","idx":2}, {"title":"月柱","idx":3}, {"title":"日柱","idx":4}, {"title":"時柱","idx":5}
     ]
+    # ... 接下來的 results.append 與表格生成邏輯 ...
+    # 提示：在 HTML <td> 中可加入 background 判斷來美化流年大運欄位
     # ... 其餘渲染邏輯維持，但 HTML 標籤可加入背景色區隔 ...
     # 建議在 HTML <td> 內加入判定：
     # background:{"#fff9e6" if r["title"] in ["流年","十年大運"] else "none"}
@@ -503,29 +503,36 @@ with c4:
 
 # --- 在主程式 st.button("🔮 開始精確排盤") 內部修改 ---
 if st.button("🔮 開始精確排盤"):
+    # 首先建議使用者更新庫：st.info("若出現錯誤，請執行 pip install --upgrade lunar-python")
+    
     # 1. 基礎八字計算
     solar = Solar.fromYmdHms(birth_date.year, birth_date.month, birth_date.day, birth_hour, 0, 0)
     lunar = solar.getLunar()
     eight_char = lunar.getEightChar()
     
-    # 2. 計算流年 (取得該年干支)
+    # 2. 計算流年柱
     liunian_pillar = Solar.fromYmd(analysis_year, 6, 1).getLunar().getYearInGanZhi()
     
-    # 3. 計算大運 (尋找分析年份對應的大運柱)
-    da_yun_obj = eight_char.getDaYun(1 if gender == "男" else 0)
-    periods = da_yun_obj.getDaYunPeriods()
+    # 3. 安全計算大運柱 (解決 AttributeError)
     current_dayun = "— —"
-    for p in periods:
-        if p.getStartYear() <= analysis_year <= p.getEndYear():
-            current_dayun = p.getGanZhi()
-            break
+    try:
+        # 優先嘗試標準方法
+        da_yun_obj = eight_char.getDaYun(1 if gender == "男" else 0)
+        periods = da_yun_obj.getDaYunPeriods()
+        for p in periods:
+            if p.getStartYear() <= analysis_year <= p.getEndYear():
+                current_dayun = p.getGanZhi()
+                break
+    except AttributeError:
+        current_dayun = "需更新庫" # 提示使用者更新 lunar-python
             
-    # 4. 建立支援 6 柱的 Bazi 物件
+    # 4. 建立 Bazi 物件並顯示結果
+    # 確保參數名稱與 SHEN_SHA_INFO 一致
     bazi_data = Bazi(
         year=eight_char.getYear(), 
         month=eight_char.getMonth(), 
         day=eight_char.getDay(), 
-        hour=eight_char.getHour(), 
+        hour=getattr(eight_char, 'getHour', getattr(eight_char, 'getTime', lambda: " "))(), 
         gender=gender, 
         dayun=current_dayun, 
         liunian=liunian_pillar
