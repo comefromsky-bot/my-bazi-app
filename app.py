@@ -130,7 +130,7 @@ def get_ten_god(me_stem, target_stem):
         ('水', '水'): '同我', ('水', '木'): '我生', ('水', '火'): '我剋', ('水', '土'): '剋我', ('水', '金'): '生我',
     }.get((me['element'], target['element']))
     return {'同我': {True: '比肩', False: '劫財'}, '我生': {True: '食神', False: '傷官'},
-            '我剋': {True: '偏財', False: '正財'}, '剋開': {True: '七殺', False: '正官'},
+            '我剋': {True: '偏財', False: '正財'}, '剋我': {True: '七殺', False: '正官'},
             '生我': {True: '偏印', False: '正印'}}.get(relation, {}).get(me['polarity'] == target['polarity'], "未知")
 
 def get_nayin_element(pillar):
@@ -436,7 +436,7 @@ def render_chart(bazi):
 
     detail_rows = []
     for ss in sorted(list(all_found_ss)):
-        info = SHEN_SHA_CONFIG.get(ss, {'feature': '暫無資料', 'effect': '暫無資料'})
+        info = SHEN_SHA_INFO.get(ss, {'feature': '暫無資料', 'effect': '暫無資料'})
         detail_rows.append(f"""<tr><td style='border:1px solid #ccc;padding:10px;font-weight:bold;color:#8e44ad;width:150px;'>{ss}</td><td style='border:1px solid #ccc;padding:10px;'>{info['feature']}</td><td style='border:1px solid #ccc;padding:10px;color:#d35400;'>{info['effect']}</td></tr>""")
     
     ss_html = f"""<div style="margin-top: 35px; font-family: '標楷體'; text-align: center; padding: 25px; border: 2.5px solid #8e44ad; border-radius: 15px; background: #fdfbff;">
@@ -467,5 +467,6 @@ if st.button("🔮 開始精確排盤"):
     y_p, m_p, d_p = eight_char.getYear(), eight_char.getMonth(), eight_char.getDay()
     h_p = getattr(eight_char, 'getHour', getattr(eight_char, 'getTime', lambda: "時柱錯誤"))()
     st.markdown(render_chart(Bazi(y_p, m_p, d_p, h_p, gender)), unsafe_allow_html=True)
+
 
 
