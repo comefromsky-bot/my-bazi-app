@@ -440,6 +440,10 @@ def render_chart(bazi):
                 <td style="background: #e8e8e8; border: 1px solid #ccc;">神煞</td>
                 {"".join([f'<td style="border: 1px solid #ccc; font-weight: bold;">{"<br>".join(r["shen_sha"]) if r["shen_sha"] else "—"}</td>' for r in results])}
             </tr>
+            <tr style="font-size: 14px; color: #1e3799; background: #f0f3ff;">
+                <td style="background: #e1e7ff; border: 1px solid #ccc; font-weight: bold;">納音五行</td>
+                {"".join([f'<td style="border: 1px solid #ccc; font-weight: bold;">{r["nayin"]}</td>' for r in results])}
+            </tr>
         </table>
     </div>"""
     
@@ -485,6 +489,7 @@ if st.button("🔮 開始精確排盤"):
     y_p, m_p, d_p = eight_char.getYear(), eight_char.getMonth(), eight_char.getDay()
     h_p = getattr(eight_char, 'getHour', getattr(eight_char, 'getTime', lambda: "時柱錯誤"))()
     st.markdown(render_chart(Bazi(y_p, m_p, d_p, h_p, gender)), unsafe_allow_html=True)
+
 
 
 
