@@ -300,28 +300,22 @@ def get_55_shen_sha(bazi, pillar_idx):
     if t_b == BRANCHES[(BRANCHES.index(y_b)+3)%12]: found.append("披麻")
 
     # 45. 童子煞
-    # --- 1. 季節基準 (基於月支 m_b) ---
-    season_tongzi = []
-    if m_b in ['寅', '卯', '辰', '申', '酉', '戌']: # 春秋
-        season_tongzi = ['寅', '子']
-    elif m_b in ['巳', '午', '未', '亥', '子', '丑']: # 冬夏
-        season_tongzi = ['卯', '未', '辰']
-
-    # --- 2. 五行基準 (基於年干 y_s，實務上最好用納音，此處以年干代表) ---
-    element_tongzi = []
-    if y_s in ['甲', '乙', '庚', '辛']: # 金木 (簡化判斷)
-        element_tongzi = ['午', '卯']
-    elif y_s in ['丙', '丁', '壬', '癸']: # 水火
-        element_tongzi = ['酉', '戌']
-    elif y_s in ['戊', '己']: # 土
-        element_tongzi = ['辰', '巳']
-
-    # --- 判斷邏輯 ---
-    # 通常童子煞看「日支」或「時支」最為靈驗
-    # pillar_idx: 0=年, 1=月, 2=日, 3=時
-    if pillar_idx in [2, 3]: 
-        if t_b in season_tongzi or t_b in element_tongzi:
-            shen_sha.append("童子煞")
+    y_nayin = NAYIN_DATA.get(bazi.pillars[0], "")
+    y_ele = y_nayin[-1] if y_nayin else ""
+    
+    # A. 季節查法 (以月支為主)
+    spring_autumn = ['寅','卯','辰','申','酉','戌']
+    summer_winter = ['巳','午','未','亥','子','丑']
+    if m_b in spring_autumn and t_b in ['寅','子']: found.append("童子煞")
+    if m_b in summer_winter and t_b in ['卯','未','辰']: found.append("童子煞")
+    
+    # B. 納音/年干查法
+    if (y_ele in ['金','木']) and t_b in ['午','卯']:
+        if "童子煞" not in found: found.append("童子煞")
+    if (y_ele in ['水','火']) and t_b in ['酉','戌']:
+        if "童子煞" not in found: found.append("童子煞")
+    if y_ele == '土' and t_b in ['辰','巳']:
+        if "童子煞" not in found: found.append("童子煞")
 
 
     # 46-51, 53-54 (十靈、八專、六秀、九醜、四廢、十惡大敗、陰差陽錯、孤鸞)
@@ -491,6 +485,7 @@ if st.button("🔮 開始精確排盤"):
     y_p, m_p, d_p = eight_char.getYear(), eight_char.getMonth(), eight_char.getDay()
     h_p = getattr(eight_char, 'getHour', getattr(eight_char, 'getTime', lambda: "時柱錯誤"))()
     st.markdown(render_chart(Bazi(y_p, m_p, d_p, h_p, gender)), unsafe_allow_html=True)
+
 
 
 
