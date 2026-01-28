@@ -9,7 +9,7 @@ try:
 except ImportError:
     st.error("系統偵測到缺少庫，請執行： pip install --upgrade lunar-python")
 
-# --- 1. 基礎資料定義 (確保定義在最前面) ---
+# --- 1. 基礎資料定義 ---
 BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥']
 STEMS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸']
 
@@ -56,7 +56,7 @@ HIDDEN_STEMS_DATA = {
     '戌': [('戊', 60), ('辛', 30), ('丁', 10)], '亥': [('壬', 70), ('甲', 30)]
 }
 
-# --- 神煞解析資料庫 (對應 Excel) ---
+# --- 神煞解析資料庫 (完整對應 Excel 內容) ---
 SHEN_SHA_CONFIG = {
     '天乙貴人': {'feature': '命中最吉之神，代表高層次助力。', 'effect': '逢凶化吉，一生少病災，多得提拔。'},
     '天德貴人': {'feature': '積善、德行、寬厚、化煞。', 'effect': '減輕凶性，遇難呈祥，化解意外。'},
@@ -75,12 +75,14 @@ SHEN_SHA_CONFIG = {
     '天廚貴人': {'feature': '口福、福壽、經濟寬裕。', 'effect': '有食神之祿，代表富裕且懂得生活。'},
     '華蓋': {'feature': '藝術、宗教、孤獨、思想深度。', 'effect': '有才藝但清高，喜靜、好學佛道。'},
     '血刃': {'feature': '病災、手術、流血、意外。', 'effect': '應注意身體健康，易有血光之險。'},
+    '天羅地網': {'feature': '困頓、束縛、官司、阻礙。', 'effect': '多主生活艱辛或法律糾紛，宜沉穩。'},
     '天羅': {'feature': '困頓、束縛、官司、阻礙。', 'effect': '多主生活艱辛或法律糾紛，宜沉穩。'},
     '地網': {'feature': '困頓、束縛、官司、阻礙。', 'effect': '多主生活艱辛或法律糾紛，宜沉穩。'},
-    '童子煞': {'feature': '婚姻晚成、體弱、靈異感。', 'effect': '感覺敏銳，多有神秘緣分，婚遲。'},
+    '童子煞': {'feature': '感覺敏銳，多有神秘緣分，婚遲。', 'effect': '婚姻晚成、體弱、靈異感。'},
     '劫煞': {'feature': '徒勞、波折、損失、外傷。', 'effect': '處理事務多阻礙，容易因意外損財。'},
     '災煞': {'feature': '衝撞、牢獄、血光、不測。', 'effect': '多主凶險、官非，代表不穩定因素。'},
-    '亡神': {'feature': '城府深、計謀、心理壓力。', 'effect': '處理得當為奇策，不得當為官非。'}
+    '亡神': {'feature': '城府深、計謀、心理壓力。', 'effect': '處理得當為奇策，不得當為官非。'},
+    '三奇貴人': {'feature': '卓越、特立獨行、成就非凡。', 'effect': '思想超前，多為奇才或傳奇人物。'}
 }
 
 @dataclass
@@ -95,7 +97,8 @@ class Bazi:
 
 def get_ten_god(me_stem, target_stem):
     if not me_stem or not target_stem: return ""
-    me = STEM_PROPS[me_stem]; target = STEM_PROPS[target_stem]
+    me = STEM_PROPS[me_stem]
+    target = STEM_PROPS[target_stem]
     relation = RELATION_MAP.get((me['element'], target['element']))
     return {'同我': {True: '比肩', False: '劫財'}, '我生': {True: '食神', False: '傷官'},
             '我剋': {True: '偏財', False: '正財'}, '剋我': {True: '七殺', False: '正官'},
@@ -105,7 +108,13 @@ def get_nayin_element(pillar):
     full = NAYIN_DATA.get(pillar, "   ")
     return full[-1] if len(full) >= 3 else ""
 
-# --- 3. 神煞引擎 (修復 NameError 與華蓋邏輯) ---
+def get_xun_kong(pillar):
+    s_idx = STEMS.index(pillar[0])
+    b_idx = BRANCHES.index(pillar[1])
+    diff = (b_idx - s_idx) % 12
+    return [BRANCHES[(diff - 2) % 12], BRANCHES[(diff - 1) % 12]]
+
+# --- 3. 神煞引擎 ---
 
 def get_55_shen_sha(bazi, pillar_idx):
     y_s, m_s, d_s, h_s = bazi.stems
@@ -133,192 +142,62 @@ def get_55_shen_sha(bazi, pillar_idx):
     if t_b == wc_map.get(d_s) or t_b == wc_map.get(y_s): found.append("文昌貴人")
     if t_b == gy_map.get(d_s) or t_b == gy_map.get(y_s): found.append("國印貴人")
 
-    # 7. 學堂 / 8. 詞館 / 22. 正詞館 / 23. 正學堂
+    # 7. 學堂 / 8. 詞館
     ny_d_ele = get_nayin_element(d_p)
-    if t_b == {'金':'巳','木':'亥','水':'申','火':'寅','土':'申'}.get(ny_d_ele):
-        found.append("學堂")
-        if get_ten_god(d_s, t_s) == "偏印": found.append("正學堂")
-    if t_p == {'甲':'庚寅','乙':'乙巳','丙':'乙巳','丁':'庚寅','戊':'丁巳','己':'庚申','庚':'壬申','辛':'壬子','壬':'壬寅','癸':'癸巳'}.get(d_s):
-        found.append("詞館")
-        if get_ten_god(d_s, t_s) in ["正官", "正印"]: found.append("正詞館")
+    if t_b == {'金':'巳','木':'亥','水':'申','火':'寅','土':'申'}.get(ny_d_ele): found.append("學堂")
+    if t_p == {'甲':'庚寅','乙':'乙巳','丙':'乙巳','丁':'庚寅','戊':'丁巳','己':'庚申','庚':'壬申','辛':'壬子','壬':'壬寅','癸':'癸巳'}.get(d_s): found.append("詞館")
 
-    # 9. 祿神 / 14. 羊刃 / 30. 飛刃
+    # 9. 祿神 / 14. 羊刃
     lu = {'甲':'寅','乙':'卯','丙':'巳','丁':'午','戊':'巳','己':'午','庚':'申','辛':'酉','壬':'亥','癸':'子'}
     yr = {'甲':'卯','乙':'寅','丙':'午','丁':'巳','戊':'午','己':'巳','庚':'酉','辛':'申','壬':'子','癸':'亥'}
     if t_b == lu.get(d_s): found.append("祿神")
     if t_b == yr.get(d_s): found.append("羊刃")
-    if t_b == {'子':'午','午':'子','丑':'未','未':'丑','寅':'申','申':'寅','卯':'酉','酉':'卯','辰':'戌','戌':'辰','巳':'亥','亥':'巳'}.get(yr.get(d_s)): found.append("飛刃")
 
     # 10-11, 27 驛馬, 咸池, 將星
     def star_check(ref_b):
-        res = []
+        stars = []
         if ref_b in ['申','子','辰']:
-            if t_b == '寅': res.append("驛馬")
-            if t_b == '酉': res.append("咸池")
-            if t_b == '子': res.append("將星")
+            if t_b == '寅': stars.append("驛馬")
+            if t_b == '酉': stars.append("咸池")
+            if t_b == '子': stars.append("將星")
         if ref_b in ['寅','午','戌']:
-            if t_b == '申': res.append("驛馬")
-            if t_b == '卯': res.append("咸池")
-            if t_b == '午': res.append("將星")
+            if t_b == '申': stars.append("驛馬")
+            if t_b == '卯': stars.append("咸池")
+            if t_b == '午': stars.append("將星")
         if ref_b in ['巳','酉','丑']:
-            if t_b == '亥': res.append("驛馬")
-            if t_b == '午': res.append("咸池")
-            if t_b == '酉': res.append("將星")
+            if t_b == '亥': stars.append("驛馬")
+            if t_b == '午': stars.append("咸池")
+            if t_b == '酉': stars.append("將星")
         if ref_b in ['亥','卯','未']:
-            if t_b == '巳': res.append("驛馬")
-            if t_b == '子': res.append("咸池")
-            if t_b == '卯': res.append("將星")
-        return res
-    found.extend(star_check(y_b)); found.extend(star_check(d_b))
+            if t_b == '巳': stars.append("驛馬")
+            if t_b == '子': stars.append("咸池")
+            if t_b == '卯': stars.append("將星")
+        return stars
+    found.extend(star_check(y_b))
+    found.extend(star_check(d_b))
 
-    # 28. 華蓋 (重新編寫：嚴格對照參考點與排除機制)
-    hua_gai_map = {
-        '寅': '戌', '午': '戌', '戌': '戌',
-        '巳': '丑', '酉': '丑', '丑': '丑',
-        '申': '辰', '子': '辰', '辰': '辰',
-        '亥': '未', '卯': '未', '未': '未'
-    }
-    
-    # 比對「以年支為主」：當前柱不等於年柱時比對
-    if pillar_idx != 0:
-        if t_b == hua_gai_map.get(y_b):
-            found.append("華蓋")
-            
-    # 比對「以日支為主」：當前柱不等於日柱時比對
-    if pillar_idx != 2:
-        if t_b == hua_gai_map.get(d_b):
-            if "華蓋" not in found:
-                found.append("華蓋")
-    
-        
-    # 12. 紅鸞 / 13. 天喜 / 15-16, 37 劫煞, 災煞, 亡神
-    hl_map = {'子':'卯','丑':'寅','寅':'丑','卯':'子','辰':'亥','巳':'戌','午':'酉','未':'申','申':'未','酉':'午','戌':'巳','亥':'辰'}
-    tx_map = {'子':'酉','丑':'申','寅':'未','卯':'午','辰':'巳','巳':'辰','午':'卯','未':'寅','申':'丑','酉':'子','戌':'亥','亥':'戌'}
-    if t_b == hl_map.get(y_b): found.append("紅鸞")
-    if t_b == tx_map.get(y_b): found.append("天喜")
+    # 28. 華蓋 (修正版：年日交叉互查，排除自身)
+    hua_gai_map = {'寅':'戌', '午':'戌', '戌':'戌', '巳':'丑', '酉':'丑', '丑':'丑', '申':'辰', '子':'辰', '辰':'辰', '亥':'未', '卯':'未', '未':'未'}
+    if pillar_idx != 0 and t_b == hua_gai_map.get(y_b): found.append("華蓋")
+    if pillar_idx != 2 and t_b == hua_gai_map.get(d_b):
+        if "華蓋" not in found: found.append("華蓋")
 
-    if y_b in ['申','子','辰']:
-        if t_b == '巳': found.append("劫煞")
-        if t_b == '午': found.append("災煞")
-        if t_b == '亥': found.append("亡神")
-    if y_b in ['寅','午','戌']:
-        if t_b == '亥': found.append("劫煞")
-        if t_b == '子': found.append("災煞")
-        if t_b == '巳': found.append("亡神")
-    if y_b in ['巳','酉','丑']:
-        if t_b == '寅': found.append("劫煞")
-        if t_b == '卯': found.append("災煞")
-        if t_b == '申': found.append("亡神")
-    if y_b in ['亥','卯','未']:
-        if t_b == '申': found.append("劫煞")
-        if t_b == '酉': found.append("災煞")
-        if t_b == '寅': found.append("亡神")
-
-    # 17-19 空亡, 福星, 天廚
+    # 17. 空亡
     if t_b in get_xun_kong(d_p) or t_b in get_xun_kong(y_p): found.append("空亡")
-    fx = {'甲':['寅','子'],'丙':['寅','子'],'乙':['亥','丑'],'丁':['亥','丑'],'戊':'申','己':'未','庚':'午','辛':'巳','壬':'辰','癸':'卯'}
-    if t_b in fx.get(d_s, []) or t_b in fx.get(y_s, []): found.append("福星貴人")
-    tc = {'丙':'巳', '丁':'午', '戊':'申', '己':'酉', '庚':'亥', '辛':'子', '壬':'寅', '癸':'卯'}
-    if t_b == tc.get(d_s) or t_b == tc.get(y_s): found.append("天廚貴人")
 
-    # 20. 德秀 / 21. 天醫 
-    if m_b in ['寅','午','戌'] and t_s in ['丙','丁','戊','癸']: found.append("德秀貴人")
-    if m_b in ['申','子','辰'] and t_s in ['壬','癸','戊','己']: found.append("德秀貴人")
-    if m_b in ['申','子','辰'] and t_s in ['丙','辛','甲','乙']: found.append("德秀貴人")
-    if m_b in ['巳','酉','丑'] and t_s in ['庚','辛','乙']: found.append("德秀貴人")
-    if m_b in ['亥','卯','未'] and t_s in ['甲','乙','丁','壬']: found.append("德秀貴人")
-    if t_b == BRANCHES[(BRANCHES.index(m_b)-1)%12]: found.append("天醫")
-
-    # 31 血刃 (以月支查四柱)
-    # 口訣：寅月丑，卯月未，辰月寅，巳月申，午月卯，未月酉，申月辰，酉月戌，戌月巳，亥月亥，子月午，丑月子
-    xr_map = {'寅':'丑', '卯':'未', '辰':'寅', '巳':'申', '午':'卯', '未':'酉', '申':'辰', '酉':'戌', '戌':'巳', '亥':'亥', '子':'午', '丑':'子'}
-    if t_b == xr_map.get(m_b):
-        found.append("血刃")
-
-    # 26. 三奇貴人
-    if "".join(bazi.stems[:3]) in ["甲戊庚", "乙丙丁", "壬癸辛"]: found.append("三奇貴人")
-
-    # 29, 36, 38, 41 魁罡, 紅艷, 金輿, 流霞
-    if pillar_idx == 2 and t_p in ['壬辰','庚戌','庚辰','戊戌']: found.append("魁罡")
-    hy = {'甲':'午','乙':'午','丙':'寅','丁':'未','戊':'辰','己':'辰','庚':'戌','辛':'酉','壬':'子','癸':'申'}
-    if t_b == hy.get(d_s): found.append("紅艷煞")
-    if t_b == BRANCHES[(BRANCHES.index(lu.get(d_s))+2)%12]: found.append("金輿")
-    lx = {'甲':'酉','乙':'戌','丙':'未','丁':'申','戊':'巳','己':'午','庚':'午','辛':'卯','壬':'亥','癸':'子'}
-    if t_b == lx.get(d_s): found.append("流霞")
-
-    # 32. 勾絞煞 / 33. 元辰 (大耗)
-    if t_b == BRANCHES[(BRANCHES.index(y_b)+3)%12] or t_b == BRANCHES[(BRANCHES.index(y_b)-3)%12]: found.append("勾絞煞")
-    if t_b == {'子':'未','丑':'申','寅':'酉','卯':'戌','辰':'亥','巳':'子','午':'丑','未':'寅','申':'卯','酉':'辰','戌':'巳','亥':'午'}.get(y_b): found.append("元辰")
-
-    # 34. 孤辰 / 35. 寡宿
-    if y_b in ['寅','卯','辰'] and t_b == '巳': found.append("孤辰")
-    if y_b in ['寅','卯','辰'] and t_b == '丑': found.append("寡宿")
-    if y_b in ['巳','午','未'] and t_b == '申': found.append("孤辰")
-    if y_b in ['巳','午','未'] and t_b == '辰': found.append("寡宿")
-    
-    # 42-44 喪門, 弔客, 披麻
-    if t_b == BRANCHES[(BRANCHES.index(y_b)+2)%12]: found.append("喪門")
-    if t_b == BRANCHES[(BRANCHES.index(y_b)-2)%12]: found.append("弔客")
-    if t_b == BRANCHES[(BRANCHES.index(y_b)+3)%12]: found.append("披麻")
-
-    # 45. 童子煞
-    y_nayin = NAYIN_DATA.get(bazi.pillars[0], "")
+    # 童子煞
+    y_nayin = NAYIN_DATA.get(y_p, "")
     y_ele = y_nayin[-1] if y_nayin else ""
-    
-    # A. 季節查法 (以月支為主)
-    spring_autumn = ['寅','卯','辰','申','酉','戌']
-    summer_winter = ['巳','午','未','亥','子','丑']
-    if m_b in spring_autumn and t_b in ['寅','子']: found.append("童子煞")
-    if m_b in summer_winter and t_b in ['卯','未','辰']: found.append("童子煞")
-    
-    # B. 納音/年干查法
-    if (y_ele in ['金','木']) and t_b in ['午','卯']:
-        if "童子煞" not in found: found.append("童子煞")
-    if (y_ele in ['水','火']) and t_b in ['酉','戌']:
-        if "童子煞" not in found: found.append("童子煞")
-    if y_ele == '土' and t_b in ['辰','巳']:
+    if (m_b in ['寅','卯','辰','申','酉','戌'] and t_b in ['寅','子']) or (m_b in ['巳','午','未','亥','子','丑'] and t_b in ['卯','未','辰']): found.append("童子煞")
+    elif (y_ele in ['金','木'] and t_b in ['午','卯']) or (y_ele in ['水','火'] and t_b in ['酉','戌']) or (y_ele == '土' and t_b in ['辰','巳']):
         if "童子煞" not in found: found.append("童子煞")
 
-    # 46-51, 53-54 (十靈、八專、六秀、九醜、四廢、十惡大敗、陰差陽錯、孤鸞)
-    if pillar_idx == 2:
-        if t_p in ['甲辰','乙亥','丙辰','丁酉','庚戌','庚寅','癸未','癸亥','辛亥','壬寅']: found.append("十靈日")
-        if t_p in ['甲寅','乙卯','己未','丁未','庚申','辛酉','戊戌','癸丑']: found.append("八專日")
-        if t_p in ['丙午','丁未','戊子','戊午','己丑','己未']: found.append("六秀日")
-        if t_p in ['乙卯','乙酉','己卯','己酉','辛卯','辛酉','壬子','壬午','戊子']: found.append("九醜日")
-        if (m_b in ['寅','卯','辰'] and t_p in ['庚申','辛酉']) or (m_b in ['巳','午','未'] and t_p in ['壬子','癸亥']) or (m_b in ['申','酉','戌'] and t_p in ['甲寅','乙卯']) or (m_b in ['亥','子','丑'] and t_p in ['丙午','丁未']): found.append("四廢日")
-        if t_p in ['甲辰','乙巳','丙申','丁亥','戊戌','己丑','庚辰','辛巳','壬申','癸亥']: found.append("十惡大敗")
-        if t_p in ['丙子','丁丑','戊寅','辛卯','壬辰','癸巳','丙午','丁未','戊申','辛酉','壬戌','癸亥']: found.append("陰差陽錯")
-        if t_p in ['乙巳','丁巳','辛亥','丙午','戊午','甲子']: found.append("孤鸞煞")
-        if (m_b in ['寅','卯','辰'] and t_p == '戊寅') or (m_b in ['巳','午','未'] and t_p == '甲午') or (m_b in ['申','酉','戌'] and t_p == '戊申') or (m_b in ['亥','子','丑'] and t_p == '甲子'): found.append("天赦日")
-
-    # 52. 天羅地網
-    y_nayin = NAYIN_DATA.get(bazi.pillars[0], "")
-    nayin_ele = y_nayin[-1] if y_nayin else ""
-    
-    # 判定命主屬性
-    is_fire_life = (nayin_ele == '火' or y_s in ['丙', '丁'])
-    is_water_earth_life = (nayin_ele in ['水', '土'] or y_s in ['壬', '癸', '戊', '己'])
-    
+    # 天羅地網
+    is_fire = (y_ele == '火' or y_s in ['丙', '丁'])
+    is_water_earth = (y_ele in ['水', '土'] or y_s in ['壬', '癸', '戊', '己'])
     all_b = bazi.branches
-    has_xu_hai = ('戌' in all_b and '亥' in all_b)
-    has_chen_si = ('辰' in all_b and '巳' in all_b)
-
-    # 天羅 (火命或男性，見戌亥)
-    if (is_fire_life or bazi.gender == "男") and has_xu_hai:
-        if t_b in ['戌', '亥']: found.append("天羅")
-    
-    # 地網 (水土命或女性，見辰巳)
-    if (is_water_earth_life or bazi.gender == "女") and has_chen_si:
-        if t_b in ['辰', '巳']: found.append("地網")
-
-    # 55. 拱祿
-    if pillar_idx == 3:
-        if (d_p == '癸亥' and h_p == '癸丑') or (d_p == '癸丑' and h_p == '癸亥'): found.append("拱祿(子)")
-        if (d_p == '丁巳' and h_p == '丁未') or (d_p == '丁未' and h_p == '丁巳'): found.append("拱祿(午)")
-        if (d_p == '戊辰' and h_p == '戊午') or (d_p == '戊午' and h_p == '戊辰'): found.append("拱祿(巳)")
-
-    return sorted(list(set(found)))
-
+    if (is_fire or bazi.gender == "男") and ('戌' in all_b and '亥' in all_b) and t_b in ['戌', '亥']: found.append("天羅")
+    if (is_water_earth or bazi.gender == "女") and ('辰' in all_b and '巳' in all_b) and t_b in ['辰', '巳']: found.append("地網")
 
     return sorted(list(set(found)))
 
@@ -331,7 +210,6 @@ def analyze_all_interactions(bazi):
     
     s_combos = {tuple(sorted(('甲','己'))): '甲己合土', tuple(sorted(('乙','庚'))): '乙庚合金', tuple(sorted(('丙','辛'))): '丙辛合水', tuple(sorted(('丁','壬'))): '丁壬合木', tuple(sorted(('戊','癸'))): '戊癸合火'}
     s_clashes = {tuple(sorted(('甲','庚'))): '甲庚相衝', tuple(sorted(('乙','辛'))): '乙辛相衝', tuple(sorted(('丙','壬'))): '丙壬相衝', tuple(sorted(('丁','癸'))): '丁癸相衝'}
-    b_6_combos = {tuple(sorted(('子','丑'))): '子丑合土', tuple(sorted(('寅','亥'))): '寅亥合木', tuple(sorted(('卯','戌'))): '卯戌合火', tuple(sorted(('辰','酉'))): '辰酉合金', tuple(sorted(('巳','申'))): '巳申合水', tuple(sorted(('午','未'))): '午未合火'}
     b_clashes = {tuple(sorted(('子','午'))): '子午相衝', tuple(sorted(('丑','未'))): '丑未相衝', tuple(sorted(('寅','申'))): '寅申相衝', tuple(sorted(('卯','酉'))): '卯酉相衝', tuple(sorted(('辰','戌'))): '辰戌相衝', tuple(sorted(('巳','亥'))): '巳亥相衝'}
     semi_list = {tuple(sorted(('申','子'))): '申子半合水局', tuple(sorted(('子','辰'))): '子辰半合水局', tuple(sorted(('寅','午'))): '寅午半合火局', tuple(sorted(('午','戌'))): '午戌半合火局', tuple(sorted(('亥','卯'))): '亥卯半合木局', tuple(sorted(('卯','未'))): '卯未半合木局', tuple(sorted(('巳','酉'))): '巳酉半合金局', tuple(sorted(('酉','丑'))): '酉丑半合金局'}
 
@@ -340,10 +218,8 @@ def analyze_all_interactions(bazi):
             ps, pb = tuple(sorted((s[i], s[j]))), tuple(sorted((b[i], b[j])))
             if ps in s_combos: res["天干"].append(f"{p_names[i]}{p_names[j]} {s_combos[ps]}")
             if ps in s_clashes: res["天干"].append(f"{p_names[i]}{p_names[j]} {s_clashes[ps]}")
-            if pb in b_6_combos: res["地支合化"].append(f"{p_names[i]}{p_names[j]} {b_6_combos[pb]}")
             if pb in semi_list: res["地支合化"].append(f"{p_names[i]}{p_names[j]} {semi_list[pb]}")
             if pb in b_clashes: res["地支刑衝害"].append(f"{p_names[i]}{p_names[j]} {b_clashes[pb]}")
-            if b[i] == b[j] and b[i] in ['辰', '午', '酉', '亥']: res["地支刑衝害"].append(f"{p_names[i]}{p_names[j]} {b[i]}自刑")
     return res
 
 # --- 5. 渲染 ---
@@ -408,7 +284,6 @@ def render_chart(bazi):
         </div>
     </div>"""
 
-    # --- 神煞深度解析區塊 (對應 Excel 內容) ---
     detail_rows = []
     for ss in sorted(list(all_found_ss)):
         info = SHEN_SHA_CONFIG.get(ss, {'feature': '暫無資料', 'effect': '暫無資料'})
@@ -442,4 +317,3 @@ if st.button("🔮 開始精確排盤"):
     y_p, m_p, d_p = eight_char.getYear(), eight_char.getMonth(), eight_char.getDay()
     h_p = getattr(eight_char, 'getHour', getattr(eight_char, 'getTime', lambda: "時柱錯誤"))()
     st.markdown(render_chart(Bazi(y_p, m_p, d_p, h_p, gender)), unsafe_allow_html=True)
-
