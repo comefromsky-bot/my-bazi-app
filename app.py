@@ -393,6 +393,44 @@ def analyze_all_interactions(bazi):
 
 # --- 5. 渲染 ---
 
+def render_lunar_info(lunar, solar):
+    """渲染農曆資訊區塊"""
+    # 取得農曆資訊
+    lunar_year = lunar.getYearInChinese()
+    lunar_month = lunar.getMonthInChinese()
+    lunar_day = lunar.getDayInChinese()
+
+    # 生肖
+    zodiac = lunar.getYearShengXiao()
+
+    # 節氣
+    jie_qi = lunar.getJieQi()
+    jie_qi_display = jie_qi if jie_qi else "無"
+
+    # 閏月判斷
+    is_leap = lunar.getMonth() < 0
+    month_prefix = "閏" if is_leap else ""
+
+    # 西曆資訊
+    solar_str = f"{solar.getYear()}年{solar.getMonth()}月{solar.getDay()}日"
+
+    html = f"""
+    <div style="margin-bottom: 25px; font-family: '標楷體'; text-align: center; padding: 20px; border: 2.5px solid #2980b9; border-radius: 15px; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);">
+        <h2 style="color: #2c3e50; margin-bottom: 15px; border-bottom: 2px solid #2980b9; padding-bottom: 10px;">📅 曆法資訊</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; text-align: left;">
+            <div style="background: #fff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                <p style="font-size: 18px; margin: 8px 0;"><strong style="color: #2980b9;">西曆：</strong>{solar_str}</p>
+                <p style="font-size: 18px; margin: 8px 0;"><strong style="color: #2980b9;">農曆：</strong>{lunar_year}年 {month_prefix}{lunar_month}月 {lunar_day}</p>
+            </div>
+            <div style="background: #fff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                <p style="font-size: 18px; margin: 8px 0;"><strong style="color: #e74c3c;">生肖：</strong><span style="font-size: 24px;">{zodiac}</span></p>
+                <p style="font-size: 18px; margin: 8px 0;"><strong style="color: #27ae60;">節氣：</strong>{jie_qi_display}</p>
+            </div>
+        </div>
+    </div>
+    """
+    return html
+
 def render_chart(bazi):
     me_stem = bazi.stems[2]
     pillar_data = [{"title":"年柱","idx":0},{"title":"月柱","idx":1},{"title":"日柱","idx":2},{"title":"時柱","idx":3}]
@@ -482,9 +520,15 @@ birth_hour = st.selectbox("小時", range(24), format_func=lambda x: f"{x:02d}:0
 
 if st.button("🔮 開始精確排盤"):
     solar = Solar.fromYmdHms(birth_date.year, birth_date.month, birth_date.day, birth_hour, 0, 0)
-    eight_char = solar.getLunar().getEightChar()
+    lunar = solar.getLunar()
+    eight_char = lunar.getEightChar()
     y_p, m_p, d_p = eight_char.getYear(), eight_char.getMonth(), eight_char.getDay()
     h_p = getattr(eight_char, 'getHour', getattr(eight_char, 'getTime', lambda: "時柱錯誤"))()
+
+    # 顯示農曆資訊
+    st.markdown(render_lunar_info(lunar, solar), unsafe_allow_html=True)
+
+    # 顯示八字命盤
     st.markdown(render_chart(Bazi(y_p, m_p, d_p, h_p, gender)), unsafe_allow_html=True)
 
 
