@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import datetime
 import re
 from dataclasses import dataclass
@@ -1538,7 +1539,36 @@ if st.button("🔮 開始精確排盤"):
     eight_char = solar.getLunar().getEightChar()
     y_p, m_p, d_p = eight_char.getYear(), eight_char.getMonth(), eight_char.getDay()
     h_p = getattr(eight_char, 'getHour', getattr(eight_char, 'getTime', lambda: "時柱錯誤"))()
-    st.markdown(render_chart(Bazi(y_p, m_p, d_p, h_p, gender), birth_date), unsafe_allow_html=True)
+
+    # 使用 components.html 來正確渲染複雜的 HTML
+    html_content = render_chart(Bazi(y_p, m_p, d_p, h_p, gender), birth_date)
+    full_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body {{
+                font-family: '標楷體', 'Microsoft JhengHei', sans-serif;
+                padding: 10px;
+                margin: 0;
+                background: #fafafa;
+            }}
+            table {{ border-collapse: collapse; }}
+            ul {{ margin: 10px 0; padding-left: 20px; }}
+            li {{ margin: 5px 0; }}
+            p {{ margin: 8px 0; }}
+            h2 {{ margin: 0; }}
+            h4 {{ margin: 10px 0; }}
+        </style>
+    </head>
+    <body>
+        {html_content}
+    </body>
+    </html>
+    """
+    components.html(full_html, height=5500, scrolling=True)
+
 
 
 
