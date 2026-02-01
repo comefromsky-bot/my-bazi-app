@@ -360,7 +360,736 @@ def get_55_shen_sha(bazi, pillar_idx):
     return sorted(list(set(found)))
 
 
-# --- 4. 深度交互分析引擎 ---
+# --- 4. 五行旺衰分析引擎 ---
+
+def analyze_five_elements(bazi):
+    """計算五行強弱及分佈"""
+    element_scores = {'木': 0, '火': 0, '土': 0, '金': 0, '水': 0}
+
+    # 天干五行計分 (每個天干 10 分)
+    stem_weights = {'年': 8, '月': 10, '日': 12, '時': 8}
+    for i, stem in enumerate(bazi.stems):
+        ele = ELEMENTS_MAP.get(stem, '')
+        if ele:
+            weight = list(stem_weights.values())[i]
+            element_scores[ele] += weight
+
+    # 地支藏干計分
+    branch_weights = {'年': 6, '月': 10, '日': 8, '時': 6}
+    for i, branch in enumerate(bazi.branches):
+        hidden = HIDDEN_STEMS_DATA.get(branch, [])
+        weight = list(branch_weights.values())[i]
+        for h_stem, percentage in hidden:
+            ele = ELEMENTS_MAP.get(h_stem, '')
+            if ele:
+                element_scores[ele] += weight * (percentage / 100)
+
+    # 計算日主五行
+    day_master = bazi.stems[2]
+    day_element = ELEMENTS_MAP.get(day_master, '')
+
+    # 判斷日主強弱
+    helping_elements = {
+        '木': ['木', '水'], '火': ['火', '木'], '土': ['土', '火'],
+        '金': ['金', '土'], '水': ['水', '金']
+    }
+    weakening_elements = {
+        '木': ['金', '火', '土'], '火': ['水', '土', '金'], '土': ['木', '金', '水'],
+        '金': ['火', '水', '木'], '水': ['土', '木', '火']
+    }
+
+    help_score = sum(element_scores[e] for e in helping_elements.get(day_element, []))
+    weaken_score = sum(element_scores[e] for e in weakening_elements.get(day_element, []))
+
+    total = sum(element_scores.values())
+
+    # 判斷身強身弱
+    if help_score > weaken_score * 1.3:
+        strength = "身強"
+        strength_desc = "日主得令得地，元氣充沛"
+    elif weaken_score > help_score * 1.3:
+        strength = "身弱"
+        strength_desc = "日主失令失地，需要扶助"
+    else:
+        strength = "中和"
+        strength_desc = "日主不強不弱，命局平衡"
+
+    # 找出過旺與不足的五行
+    avg = total / 5
+    excess = [e for e, s in element_scores.items() if s > avg * 1.5]
+    lacking = [e for e, s in element_scores.items() if s < avg * 0.5]
+
+    return {
+        'scores': element_scores,
+        'day_element': day_element,
+        'day_master': day_master,
+        'strength': strength,
+        'strength_desc': strength_desc,
+        'help_score': help_score,
+        'weaken_score': weaken_score,
+        'excess': excess,
+        'lacking': lacking,
+        'total': total
+    }
+
+# --- 4.1 格局與用神判斷 ---
+
+def determine_pattern_and_yongshen(bazi, five_elem_result):
+    """判斷命格格局與喜用神"""
+    day_master = bazi.stems[2]
+    month_branch = bazi.branches[1]
+    day_element = five_elem_result['day_element']
+    strength = five_elem_result['strength']
+    scores = five_elem_result['scores']
+
+    # 十神統計
+    ten_gods = {}
+    for i, stem in enumerate(bazi.stems):
+        if i != 2:  # 排除日主
+            tg = get_ten_god(day_master, stem)
+            ten_gods[tg] = ten_gods.get(tg, 0) + 1
+
+    for branch in bazi.branches:
+        hidden = HIDDEN_STEMS_DATA.get(branch, [])
+        for h_stem, pct in hidden:
+            tg = get_ten_god(day_master, h_stem)
+            ten_gods[tg] = ten_gods.get(tg, 0) + (pct / 100)
+
+    # 格局判斷
+    patterns = []
+    pattern_desc = ""
+
+    # 正官格
+    if ten_gods.get('正官', 0) >= 1.5 and ten_gods.get('七殺', 0) < 1:
+        patterns.append("正官格")
+        pattern_desc = "正官透出，品性端正，適合從政或管理職位"
+
+    # 七殺格
+    if ten_gods.get('七殺', 0) >= 1.5:
+        patterns.append("七殺格")
+        pattern_desc = "七殺透出，性格剛毅，適合競爭激烈的行業"
+
+    # 正財格
+    if ten_gods.get('正財', 0) >= 1.5:
+        patterns.append("正財格")
+        pattern_desc = "正財透出，勤儉持家，財運穩定"
+
+    # 偏財格
+    if ten_gods.get('偏財', 0) >= 1.5:
+        patterns.append("偏財格")
+        pattern_desc = "偏財透出，善於投資理財，有意外之財"
+
+    # 食神格
+    if ten_gods.get('食神', 0) >= 1.5:
+        patterns.append("食神格")
+        pattern_desc = "食神透出，性格溫和，有藝術天分"
+
+    # 傷官格
+    if ten_gods.get('傷官', 0) >= 1.5:
+        patterns.append("傷官格")
+        pattern_desc = "傷官透出，才華橫溢，思維獨特"
+
+    # 正印格
+    if ten_gods.get('正印', 0) >= 1.5:
+        patterns.append("正印格")
+        pattern_desc = "正印透出，聰明好學，有長輩庇護"
+
+    # 偏印格
+    if ten_gods.get('偏印', 0) >= 1.5:
+        patterns.append("偏印格")
+        pattern_desc = "偏印透出，思想獨特，適合研究工作"
+
+    # 建祿格
+    lu_map = {'甲':'寅','乙':'卯','丙':'巳','丁':'午','戊':'巳','己':'午','庚':'申','辛':'酉','壬':'亥','癸':'子'}
+    if month_branch == lu_map.get(day_master):
+        patterns.append("建祿格")
+        pattern_desc = "月支為祿，自立能力強，事業有成"
+
+    # 羊刃格
+    yr_map = {'甲':'卯','乙':'寅','丙':'午','丁':'巳','戊':'午','己':'巳','庚':'酉','辛':'申','壬':'子','癸':'亥'}
+    if month_branch == yr_map.get(day_master):
+        patterns.append("羊刃格")
+        pattern_desc = "月支為刃，性格剛強，需防衝動"
+
+    if not patterns:
+        patterns.append("普通格局")
+        pattern_desc = "命局平和，宜穩中求進"
+
+    # 喜用神判斷
+    generating = {'木': '水', '火': '木', '土': '火', '金': '土', '水': '金'}
+    same = {'木': '木', '火': '火', '土': '土', '金': '金', '水': '水'}
+    controlling = {'木': '金', '火': '水', '土': '木', '金': '火', '水': '土'}
+    generated = {'木': '火', '火': '土', '土': '金', '金': '水', '水': '木'}
+    controlled = {'木': '土', '火': '金', '土': '水', '金': '木', '水': '火'}
+
+    if strength == "身弱":
+        xi_shen = generating.get(day_element, '')  # 喜印星（生我）
+        yong_shen = same.get(day_element, '')  # 用比劫（同我）
+        ji_shen = [controlling.get(day_element, ''), generated.get(day_element, '')]
+        advice = "宜補強日主，多接近喜用神五行"
+    elif strength == "身強":
+        xi_shen = generated.get(day_element, '')  # 喜食傷（我生）
+        yong_shen = controlling.get(day_element, '')  # 用官殺（剋我）
+        ji_shen = [generating.get(day_element, ''), same.get(day_element, '')]
+        advice = "宜洩秀日主，避免過於剛強"
+    else:
+        xi_shen = generating.get(day_element, '')
+        yong_shen = generated.get(day_element, '')
+        ji_shen = []
+        advice = "命局中和，順勢而為即可"
+
+    return {
+        'patterns': patterns,
+        'pattern_desc': pattern_desc,
+        'ten_gods': ten_gods,
+        'xi_shen': xi_shen,
+        'yong_shen': yong_shen,
+        'ji_shen': ji_shen,
+        'advice': advice,
+        'strength': strength
+    }
+
+# --- 4.2 性格特質分析 ---
+
+def analyze_personality(bazi, five_elem_result, pattern_result):
+    """根據八字分析性格特質"""
+    day_master = bazi.stems[2]
+    day_element = five_elem_result['day_element']
+    strength = five_elem_result['strength']
+    polarity = STEM_PROPS[day_master]['polarity']
+
+    # 日主性格基礎
+    stem_traits = {
+        '甲': {'base': '正直剛毅', 'positive': '有領導力、正義感強、積極進取', 'negative': '固執己見、不善變通'},
+        '乙': {'base': '柔韌靈活', 'positive': '善於適應、有藝術天分、人緣好', 'negative': '優柔寡斷、依賴心強'},
+        '丙': {'base': '熱情開朗', 'positive': '慷慨大方、光明磊落、感染力強', 'negative': '衝動急躁、不夠細心'},
+        '丁': {'base': '溫和細膩', 'positive': '心思細密、有洞察力、重感情', 'negative': '多慮敏感、容易焦慮'},
+        '戊': {'base': '穩重厚實', 'positive': '誠信可靠、包容力強、有擔當', 'negative': '保守固執、不夠靈活'},
+        '己': {'base': '謙遜務實', 'positive': '踏實認真、善於理財、有耐心', 'negative': '猜疑心重、缺乏自信'},
+        '庚': {'base': '剛毅果斷', 'positive': '意志堅定、執行力強、有魄力', 'negative': '性格急躁、容易衝突'},
+        '辛': {'base': '精明細緻', 'positive': '審美力強、善於分析、品味高', 'negative': '挑剔苛求、不夠寬容'},
+        '壬': {'base': '聰慧多謀', 'positive': '足智多謀、適應力強、有遠見', 'negative': '不夠專一、容易分心'},
+        '癸': {'base': '內斂敏銳', 'positive': '直覺敏銳、善於觀察、有智慧', 'negative': '過於低調、缺乏魄力'}
+    }
+
+    traits = stem_traits.get(day_master, {'base': '未知', 'positive': '', 'negative': ''})
+
+    # 根據身強身弱調整
+    if strength == "身強":
+        strength_trait = "自信心強，行動力佳，但需注意不要過於強勢"
+    elif strength == "身弱":
+        strength_trait = "性格較為謙和，宜多培養自信，善用他人助力"
+    else:
+        strength_trait = "性格平衡，能屈能伸，進退有度"
+
+    # 十神性格影響
+    ten_gods = pattern_result['ten_gods']
+    god_traits = []
+
+    if ten_gods.get('食神', 0) > 1:
+        god_traits.append("食神旺：為人和善，懂得享受生活，有口福")
+    if ten_gods.get('傷官', 0) > 1:
+        god_traits.append("傷官旺：才思敏捷，創意豐富，但易得罪人")
+    if ten_gods.get('正財', 0) > 1:
+        god_traits.append("正財旺：勤儉節約，理財有道，重視物質")
+    if ten_gods.get('偏財', 0) > 1:
+        god_traits.append("偏財旺：慷慨大方，人脈廣闘，善於投資")
+    if ten_gods.get('正官', 0) > 1:
+        god_traits.append("正官旺：守規矩、有責任感，適合公職")
+    if ten_gods.get('七殺', 0) > 1:
+        god_traits.append("七殺旺：有魄力、敢冒險，適合創業")
+    if ten_gods.get('正印', 0) > 1:
+        god_traits.append("正印旺：愛學習、重名聲，有長輩緣")
+    if ten_gods.get('偏印', 0) > 1:
+        god_traits.append("偏印旺：思想獨特，適合研究，但較孤僻")
+    if ten_gods.get('比肩', 0) > 1:
+        god_traits.append("比肩旺：獨立自主，重朋友，但競爭心強")
+    if ten_gods.get('劫財', 0) > 1:
+        god_traits.append("劫財旺：積極進取，但易破財，需防小人")
+
+    return {
+        'day_master': day_master,
+        'base_trait': traits['base'],
+        'positive': traits['positive'],
+        'negative': traits['negative'],
+        'strength_trait': strength_trait,
+        'god_traits': god_traits,
+        'polarity': polarity
+    }
+
+# --- 4.3 事業財運分析 ---
+
+def analyze_career_wealth(bazi, five_elem_result, pattern_result):
+    """分析事業與財運"""
+    day_element = five_elem_result['day_element']
+    strength = five_elem_result['strength']
+    ten_gods = pattern_result['ten_gods']
+
+    # 適合的行業（根據喜用神五行）
+    industry_map = {
+        '木': ['文化教育', '出版傳媒', '農林園藝', '服裝紡織', '醫藥保健', '家具木材'],
+        '火': ['電子科技', '能源電力', '餐飲美食', '娛樂表演', '廣告設計', '照明光學'],
+        '土': ['房地產', '建築工程', '農業種植', '倉儲物流', '礦業開採', '陶瓷建材'],
+        '金': ['金融投資', '機械製造', '汽車交通', '珠寶鐘錶', '法律司法', '軍警保全'],
+        '水': ['貿易商務', '物流運輸', '旅遊觀光', '水利漁業', '清潔服務', '資訊網路']
+    }
+
+    xi_shen = pattern_result['xi_shen']
+    yong_shen = pattern_result['yong_shen']
+
+    suitable_industries = []
+    if xi_shen:
+        suitable_industries.extend(industry_map.get(xi_shen, []))
+    if yong_shen and yong_shen != xi_shen:
+        suitable_industries.extend(industry_map.get(yong_shen, []))
+
+    # 財運分析
+    wealth_analysis = []
+
+    if ten_gods.get('正財', 0) > 1 and ten_gods.get('偏財', 0) > 1:
+        wealth_analysis.append("正偏財皆旺，財運亨通，正財偏財兼收")
+    elif ten_gods.get('正財', 0) > 1:
+        wealth_analysis.append("正財旺盛，適合穩定工作收入，薪資運佳")
+    elif ten_gods.get('偏財', 0) > 1:
+        wealth_analysis.append("偏財旺盛，有投資運，可獲意外之財")
+    else:
+        wealth_analysis.append("財星不顯，宜穩健理財，不宜投機")
+
+    if strength == "身強":
+        wealth_analysis.append("身強能擔財，財來能守，適合自主創業")
+    elif strength == "身弱":
+        wealth_analysis.append("身弱財多則難擔，宜合作經營，勿貪大財")
+
+    # 事業發展建議
+    if ten_gods.get('正官', 0) > 1:
+        career_advice = "正官旺，適合在大企業或政府機關任職，走正統路線"
+    elif ten_gods.get('七殺', 0) > 1:
+        career_advice = "七殺旺，適合創業或從事競爭激烈的行業，有衝勁"
+    elif ten_gods.get('食神', 0) > 1 or ten_gods.get('傷官', 0) > 1:
+        career_advice = "食傷旺，適合創意產業、自由職業或技術研發"
+    elif ten_gods.get('正印', 0) > 1 or ten_gods.get('偏印', 0) > 1:
+        career_advice = "印星旺，適合教育、學術研究或文化產業"
+    else:
+        career_advice = "命局平和，各行各業皆可發展，宜選擇喜用神相關行業"
+
+    return {
+        'suitable_industries': suitable_industries[:8],
+        'wealth_analysis': wealth_analysis,
+        'career_advice': career_advice,
+        'xi_shen': xi_shen,
+        'yong_shen': yong_shen
+    }
+
+# --- 4.4 婚姻感情分析 ---
+
+def analyze_marriage(bazi, five_elem_result, pattern_result):
+    """分析婚姻感情運勢"""
+    gender = bazi.gender
+    day_master = bazi.stems[2]
+    ten_gods = pattern_result['ten_gods']
+    strength = five_elem_result['strength']
+
+    # 配偶星分析
+    if gender == "男":
+        spouse_star = "正財"  # 男命正財為妻
+        affair_star = "偏財"
+    else:
+        spouse_star = "正官"  # 女命正官為夫
+        affair_star = "七殺"
+
+    spouse_count = ten_gods.get(spouse_star, 0)
+    affair_count = ten_gods.get(affair_star, 0)
+
+    marriage_traits = []
+
+    # 配偶星分析
+    if spouse_count >= 2:
+        marriage_traits.append(f"{spouse_star}多現，感情經歷豐富，需慎選伴侶")
+    elif spouse_count >= 1:
+        marriage_traits.append(f"{spouse_star}適中，婚姻運勢穩定")
+    else:
+        marriage_traits.append(f"{spouse_star}不顯，可能晚婚或需主動追求")
+
+    if affair_count >= 2:
+        marriage_traits.append(f"{affair_star}旺盛，異性緣佳，但需注意第三者")
+
+    # 桃花分析
+    peach_branches = ['子', '午', '卯', '酉']
+    peach_count = sum(1 for b in bazi.branches if b in peach_branches)
+
+    if peach_count >= 3:
+        marriage_traits.append("桃花旺盛，異性緣極佳，感情生活精彩")
+    elif peach_count >= 2:
+        marriage_traits.append("桃花適中，有正常的異性交往機會")
+    else:
+        marriage_traits.append("桃花較少，感情發展較為平淡穩定")
+
+    # 配偶特質推斷
+    day_branch = bazi.branches[2]
+    spouse_element = ELEMENTS_MAP.get(day_branch, '')
+
+    spouse_traits = {
+        '木': '配偶可能性格正直、有主見、注重健康',
+        '火': '配偶可能熱情開朗、積極樂觀、有表現欲',
+        '土': '配偶可能穩重踏實、顧家可靠、重視安全感',
+        '金': '配偶可能精明幹練、有原則、注重品質',
+        '水': '配偶可能聰明靈活、善於交際、適應力強'
+    }
+
+    spouse_desc = spouse_traits.get(spouse_element, '配偶特質需結合其他因素分析')
+
+    # 婚姻建議
+    if strength == "身強" and spouse_count < 1:
+        marriage_advice = "身強財弱，宜主動追求，多參加社交活動"
+    elif strength == "身弱" and spouse_count > 2:
+        marriage_advice = "身弱財多，宜晚婚，選擇能支持自己的伴侶"
+    else:
+        marriage_advice = "婚姻運勢平穩，真誠相待，自然會有良緣"
+
+    return {
+        'spouse_star': spouse_star,
+        'marriage_traits': marriage_traits,
+        'spouse_desc': spouse_desc,
+        'marriage_advice': marriage_advice,
+        'peach_count': peach_count
+    }
+
+# --- 4.5 健康養生分析 ---
+
+def analyze_health(bazi, five_elem_result):
+    """分析健康狀況與養生建議"""
+    scores = five_elem_result['scores']
+    day_element = five_elem_result['day_element']
+    excess = five_elem_result['excess']
+    lacking = five_elem_result['lacking']
+
+    # 五行對應臟腑
+    organ_map = {
+        '木': {'organs': '肝、膽、眼睛、筋腱', 'excess': '肝火旺、易怒、偏頭痛', 'lack': '肝血不足、視力問題'},
+        '火': {'organs': '心、小腸、血脈、舌', 'excess': '心火旺、失眠、焦慮', 'lack': '心血不足、健忘、心悸'},
+        '土': {'organs': '脾、胃、肌肉、口唇', 'excess': '脾胃濕熱、消化不良', 'lack': '脾虛、食慾不振、四肢無力'},
+        '金': {'organs': '肺、大腸、皮膚、鼻', 'excess': '肺熱、皮膚問題', 'lack': '肺氣虛、呼吸系統弱、易感冒'},
+        '水': {'organs': '腎、膀胱、骨骼、耳', 'excess': '腎水過旺、水腫', 'lack': '腎虛、腰膝酸軟、骨質疏鬆'}
+    }
+
+    health_warnings = []
+    health_tips = []
+
+    # 分析過旺五行
+    for elem in excess:
+        info = organ_map.get(elem, {})
+        health_warnings.append(f"【{elem}過旺】{info.get('excess', '')}")
+
+    # 分析不足五行
+    for elem in lacking:
+        info = organ_map.get(elem, {})
+        health_warnings.append(f"【{elem}不足】{info.get('lack', '')}")
+
+    if not health_warnings:
+        health_warnings.append("五行較為平衡，整體健康狀況良好")
+
+    # 養生建議
+    element_foods = {
+        '木': '綠色蔬菜、酸味食物、枸杞、菊花茶',
+        '火': '紅色食物、苦味蔬菜、蓮子、百合',
+        '土': '黃色食物、甜味適量、山藥、薏仁',
+        '金': '白色食物、辛味適量、白蘿蔔、銀耳',
+        '水': '黑色食物、鹹味適量、黑豆、海帶'
+    }
+
+    for elem in lacking:
+        foods = element_foods.get(elem, '')
+        if foods:
+            health_tips.append(f"補{elem}食物：{foods}")
+
+    # 運動建議
+    exercise_map = {
+        '木': '適合戶外活動、伸展運動、太極拳',
+        '火': '適合有氧運動、瑜伽、游泳降火',
+        '土': '適合散步、八段錦、腹部按摩',
+        '金': '適合呼吸練習、爬山、武術',
+        '水': '適合游泳、慢跑、冥想靜坐'
+    }
+
+    exercise_tips = []
+    for elem in lacking:
+        tip = exercise_map.get(elem, '')
+        if tip:
+            exercise_tips.append(f"補{elem}運動：{tip}")
+
+    if not exercise_tips:
+        exercise_tips.append(f"根據日主{day_element}：{exercise_map.get(day_element, '規律運動，保持健康')}")
+
+    return {
+        'organ_focus': organ_map.get(day_element, {}).get('organs', ''),
+        'health_warnings': health_warnings,
+        'health_tips': health_tips,
+        'exercise_tips': exercise_tips,
+        'excess': excess,
+        'lacking': lacking
+    }
+
+# --- 4.6 大運流年分析 ---
+
+def analyze_dayun_liunian(bazi, birth_date, five_elem_result, pattern_result):
+    """分析大運與流年"""
+    gender = bazi.gender
+    year_stem = bazi.stems[0]
+    month_pillar = bazi.pillars[1]
+    xi_shen = pattern_result['xi_shen']
+    yong_shen = pattern_result['yong_shen']
+
+    # 判斷大運順逆
+    yang_stems = ['甲', '丙', '戊', '庚', '壬']
+    is_yang = year_stem in yang_stems
+    is_forward = (is_yang and gender == "男") or (not is_yang and gender == "女")
+
+    direction = "順行" if is_forward else "逆行"
+
+    # 計算大運起始年齡（簡化計算）
+    month_branch = bazi.branches[1]
+    month_idx = BRANCHES.index(month_branch)
+
+    # 生成未來六步大運
+    dayun_list = []
+    month_stem = bazi.stems[1]
+    stem_idx = STEMS.index(month_stem)
+    branch_idx = BRANCHES.index(month_branch)
+
+    for i in range(1, 7):
+        if is_forward:
+            new_stem_idx = (stem_idx + i) % 10
+            new_branch_idx = (branch_idx + i) % 12
+        else:
+            new_stem_idx = (stem_idx - i) % 10
+            new_branch_idx = (branch_idx - i) % 12
+
+        dayun_stem = STEMS[new_stem_idx]
+        dayun_branch = BRANCHES[new_branch_idx]
+        dayun_pillar = dayun_stem + dayun_branch
+
+        # 判斷大運五行
+        dayun_elem = ELEMENTS_MAP.get(dayun_stem, '')
+
+        # 判斷大運吉凶
+        if dayun_elem == xi_shen or dayun_elem == yong_shen:
+            luck = "吉"
+            luck_desc = f"大運走{dayun_elem}，為喜用神，運勢較佳"
+        elif dayun_elem in pattern_result.get('ji_shen', []):
+            luck = "凶"
+            luck_desc = f"大運走{dayun_elem}，為忌神，宜謹慎行事"
+        else:
+            luck = "平"
+            luck_desc = f"大運走{dayun_elem}，運勢平穩"
+
+        start_age = i * 10  # 簡化計算
+
+        dayun_list.append({
+            'pillar': dayun_pillar,
+            'element': dayun_elem,
+            'luck': luck,
+            'luck_desc': luck_desc,
+            'age_range': f"{start_age}-{start_age+9}歲"
+        })
+
+    # 當前流年分析
+    current_year = birth_date.year if hasattr(birth_date, 'year') else 2024
+    analysis_year = 2024  # 分析年份
+
+    # 計算流年干支（簡化）
+    year_offset = (analysis_year - 4) % 60
+    liunian_stem = STEMS[year_offset % 10]
+    liunian_branch = BRANCHES[year_offset % 12]
+    liunian_pillar = liunian_stem + liunian_branch
+    liunian_elem = ELEMENTS_MAP.get(liunian_stem, '')
+
+    if liunian_elem == xi_shen or liunian_elem == yong_shen:
+        liunian_luck = "今年運勢較佳，宜積極把握機會"
+    elif liunian_elem in pattern_result.get('ji_shen', []):
+        liunian_luck = "今年運勢起伏，宜保守穩健"
+    else:
+        liunian_luck = "今年運勢平穩，順勢而為"
+
+    return {
+        'direction': direction,
+        'dayun_list': dayun_list,
+        'liunian_pillar': liunian_pillar,
+        'liunian_luck': liunian_luck,
+        'analysis_year': analysis_year
+    }
+
+# --- 4.7 人生建議與開運方法 ---
+
+def get_life_advice(five_elem_result, pattern_result, career_result, marriage_result, health_result):
+    """綜合人生建議"""
+    strength = five_elem_result['strength']
+    xi_shen = pattern_result['xi_shen']
+    yong_shen = pattern_result['yong_shen']
+
+    advice_list = []
+
+    # 事業建議
+    advice_list.append({
+        'category': '事業發展',
+        'advice': career_result['career_advice'],
+        'detail': f"適合行業：{'、'.join(career_result['suitable_industries'][:4])}"
+    })
+
+    # 財運建議
+    advice_list.append({
+        'category': '財富理財',
+        'advice': career_result['wealth_analysis'][0] if career_result['wealth_analysis'] else '穩健理財',
+        'detail': '建議：量入為出，適當投資，分散風險'
+    })
+
+    # 感情建議
+    advice_list.append({
+        'category': '感情婚姻',
+        'advice': marriage_result['marriage_advice'],
+        'detail': marriage_result['spouse_desc']
+    })
+
+    # 健康建議
+    health_advice = health_result['health_warnings'][0] if health_result['health_warnings'] else '注意養生'
+    advice_list.append({
+        'category': '健康養生',
+        'advice': health_advice,
+        'detail': health_result['health_tips'][0] if health_result['health_tips'] else '均衡飲食，規律作息'
+    })
+
+    return advice_list
+
+def get_lucky_elements(pattern_result, five_elem_result):
+    """獲取開運方法"""
+    xi_shen = pattern_result['xi_shen']
+    yong_shen = pattern_result['yong_shen']
+
+    # 五行對應開運物
+    lucky_items = {
+        '木': {
+            'colors': '綠色、青色、翠色',
+            'directions': '東方',
+            'numbers': '3、8',
+            'items': '植物盆栽、木質飾品、書籍',
+            'foods': '蔬菜、水果、酸味食物'
+        },
+        '火': {
+            'colors': '紅色、紫色、橙色',
+            'directions': '南方',
+            'numbers': '2、7',
+            'items': '燈飾、電子產品、紅色飾品',
+            'foods': '紅色食物、苦味蔬菜'
+        },
+        '土': {
+            'colors': '黃色、棕色、米色',
+            'directions': '中央、東北、西南',
+            'numbers': '5、0',
+            'items': '陶瓷器皿、玉石、水晶',
+            'foods': '穀物、甜食、根莖類'
+        },
+        '金': {
+            'colors': '白色、金色、銀色',
+            'directions': '西方',
+            'numbers': '4、9',
+            'items': '金屬飾品、鐘錶、汽車',
+            'foods': '白色食物、辛辣調味'
+        },
+        '水': {
+            'colors': '黑色、藍色、灰色',
+            'directions': '北方',
+            'numbers': '1、6',
+            'items': '水族缸、噴泉、流動物品',
+            'foods': '海鮮、黑色食物、鹹味'
+        }
+    }
+
+    result = {}
+
+    if xi_shen and xi_shen in lucky_items:
+        result['喜神開運'] = lucky_items[xi_shen]
+        result['喜神'] = xi_shen
+
+    if yong_shen and yong_shen in lucky_items and yong_shen != xi_shen:
+        result['用神開運'] = lucky_items[yong_shen]
+        result['用神'] = yong_shen
+
+    return result
+
+def get_overall_rating(five_elem_result, pattern_result, all_shen_sha):
+    """命格總評"""
+    scores = {
+        '格局評分': 0,
+        '財運評分': 0,
+        '事業評分': 0,
+        '婚姻評分': 0,
+        '健康評分': 0
+    }
+
+    # 格局評分
+    patterns = pattern_result['patterns']
+    if any(p in patterns for p in ['正官格', '正財格', '正印格']):
+        scores['格局評分'] = 85
+    elif any(p in patterns for p in ['食神格', '偏財格']):
+        scores['格局評分'] = 80
+    elif any(p in patterns for p in ['建祿格', '七殺格']):
+        scores['格局評分'] = 75
+    else:
+        scores['格局評分'] = 70
+
+    # 神煞加成
+    good_sha = ['天乙貴人', '天德貴人', '月德貴人', '文昌貴人', '太極貴人', '祿神', '將星', '紅鸞', '天喜']
+    bad_sha = ['羊刃', '劫煞', '災煞', '空亡', '血刃', '孤辰', '寡宿']
+
+    good_count = sum(1 for sha in all_shen_sha if sha in good_sha)
+    bad_count = sum(1 for sha in all_shen_sha if sha in bad_sha)
+
+    sha_bonus = good_count * 2 - bad_count * 2
+
+    # 其他評分
+    ten_gods = pattern_result['ten_gods']
+
+    # 財運
+    scores['財運評分'] = min(90, 65 + ten_gods.get('正財', 0) * 8 + ten_gods.get('偏財', 0) * 6 + sha_bonus)
+
+    # 事業
+    scores['事業評分'] = min(90, 65 + ten_gods.get('正官', 0) * 8 + ten_gods.get('七殺', 0) * 5 + sha_bonus)
+
+    # 婚姻
+    scores['婚姻評分'] = min(90, 70 + sha_bonus)
+    if '紅鸞' in all_shen_sha or '天喜' in all_shen_sha:
+        scores['婚姻評分'] += 5
+    if '孤辰' in all_shen_sha or '寡宿' in all_shen_sha or '孤鸞煞' in all_shen_sha:
+        scores['婚姻評分'] -= 5
+
+    # 健康
+    scores['健康評分'] = min(90, 75 + sha_bonus)
+    if '血刃' in all_shen_sha or '流霞' in all_shen_sha:
+        scores['健康評分'] -= 3
+
+    # 計算總評
+    total = sum(scores.values()) / len(scores)
+
+    if total >= 85:
+        overall = "上上格局，命帶貴氣，一生順遂"
+    elif total >= 75:
+        overall = "上等格局，福祿兼備，事業有成"
+    elif total >= 65:
+        overall = "中上格局，平穩發展，小富即安"
+    elif total >= 55:
+        overall = "中等格局，需要努力，可期成就"
+    else:
+        overall = "普通格局，逆境求存，貴在堅持"
+
+    return {
+        'scores': scores,
+        'total': round(total, 1),
+        'overall': overall,
+        'good_sha_count': good_count,
+        'bad_sha_count': bad_count
+    }
+
+
+# --- 5. 深度交互分析引擎 ---
 
 def analyze_all_interactions(bazi):
     s, b = bazi.stems, bazi.branches
@@ -391,14 +1120,14 @@ def analyze_all_interactions(bazi):
             if b[i] == b[j] and b[i] in ['辰', '午', '酉', '亥']: res["地支刑衝害"].append(f"{p_names[i]}{p_names[j]} {b[i]}自刑")
     return res
 
-# --- 5. 渲染 ---
+# --- 6. 渲染 ---
 
-def render_chart(bazi):
+def render_chart(bazi, birth_date=None):
     me_stem = bazi.stems[2]
     pillar_data = [{"title":"年柱","idx":0},{"title":"月柱","idx":1},{"title":"日柱","idx":2},{"title":"時柱","idx":3}]
     results = []
     all_found_ss = set()
-    
+
     for p in pillar_data:
         s_sha = get_55_shen_sha(bazi, p["idx"])
         all_found_ss.update(s_sha)
@@ -409,6 +1138,18 @@ def render_chart(bazi):
             "h_stems":[x[0] for x in h], "h_details":[f"{x[0]}({get_ten_god(me_stem,x[0])}) {x[1]}%" for x in h],
             "shen_sha": s_sha
         })
+
+    # 執行所有分析
+    five_elem_result = analyze_five_elements(bazi)
+    pattern_result = determine_pattern_and_yongshen(bazi, five_elem_result)
+    personality_result = analyze_personality(bazi, five_elem_result, pattern_result)
+    career_result = analyze_career_wealth(bazi, five_elem_result, pattern_result)
+    marriage_result = analyze_marriage(bazi, five_elem_result, pattern_result)
+    health_result = analyze_health(bazi, five_elem_result)
+    dayun_result = analyze_dayun_liunian(bazi, birth_date, five_elem_result, pattern_result)
+    life_advice = get_life_advice(five_elem_result, pattern_result, career_result, marriage_result, health_result)
+    lucky_result = get_lucky_elements(pattern_result, five_elem_result)
+    rating_result = get_overall_rating(five_elem_result, pattern_result, list(all_found_ss))
 
     l_fs, c_fs = "20px", "18px"
     html = f"""<div style="overflow-x: auto; font-family: '標楷體'; text-align: center;">
@@ -443,7 +1184,7 @@ def render_chart(bazi):
             </tr>
         </table>
     </div>"""
-    
+
     rels = analyze_all_interactions(bazi)
     rel_html = f"""<div style="margin-top: 35px; font-family: '標楷體'; text-align: left; padding: 25px; border: 2.5px solid #2c3e50; border-radius: 15px; background: #ffffff;">
         <h2 style="color: #2c3e50; text-align: center; border-bottom: 2px solid #2c3e50; padding-bottom: 10px;">📜 四柱干支交互關係詳解</h2>
@@ -457,7 +1198,7 @@ def render_chart(bazi):
     for ss in sorted(list(all_found_ss)):
         info = SHEN_SHA_INFO.get(ss, {'feature': '暫無資料', 'effect': '暫無資料'})
         detail_rows.append(f"""<tr><td style='border:1px solid #ccc;padding:10px;font-weight:bold;color:#8e44ad;width:150px;'>{ss}</td><td style='border:1px solid #ccc;padding:10px;'>{info['feature']}</td><td style='border:1px solid #ccc;padding:10px;color:#d35400;'>{info['effect']}</td></tr>""")
-    
+
     ss_html = f"""<div style="margin-top: 35px; font-family: '標楷體'; text-align: center; padding: 25px; border: 2.5px solid #8e44ad; border-radius: 15px; background: #fdfbff;">
         <h2 style="color: #8e44ad; border-bottom: 2px solid #8e44ad; padding-bottom: 10px;">🔮 命盤神煞深度解析</h2>
         <table style="width:100%; border-collapse: collapse; margin-top: 15px;">
@@ -469,7 +1210,319 @@ def render_chart(bazi):
             {"".join(detail_rows) if detail_rows else "<tr><td colspan='3' style='padding:20px;'>本命盤無特殊神煞解析</td></tr>"}
         </table>
     </div>"""
-    return html + rel_html + ss_html
+
+    # === 一、基本資料 ===
+    basic_html = f"""<div style="margin-top: 35px; font-family: '標楷體'; padding: 25px; border: 2.5px solid #3498db; border-radius: 15px; background: #f8fbff;">
+        <h2 style="color: #3498db; text-align: center; border-bottom: 2px solid #3498db; padding-bottom: 10px;">📋 一、基本資料</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
+            <div style="padding: 15px; background: #fff; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                <p><strong>性別：</strong>{bazi.gender}</p>
+                <p><strong>日主：</strong>{bazi.stems[2]}（{five_elem_result['day_element']}）</p>
+                <p><strong>日主陰陽：</strong>{STEM_PROPS[bazi.stems[2]]['polarity']}{five_elem_result['day_element']}</p>
+            </div>
+            <div style="padding: 15px; background: #fff; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                <p><strong>身強身弱：</strong>{five_elem_result['strength']}</p>
+                <p><strong>格局：</strong>{'、'.join(pattern_result['patterns'])}</p>
+                <p><strong>納音：</strong>{NAYIN_DATA.get(bazi.pillars[2], '')}</p>
+            </div>
+        </div>
+    </div>"""
+
+    # === 二、完整八字命盤 ===
+    full_bazi_html = f"""<div style="margin-top: 35px; font-family: '標楷體'; padding: 25px; border: 2.5px solid #9b59b6; border-radius: 15px; background: #fdf8ff;">
+        <h2 style="color: #9b59b6; text-align: center; border-bottom: 2px solid #9b59b6; padding-bottom: 10px;">🔍 二、完整八字命盤</h2>
+        <div style="text-align: center; margin-top: 20px;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr style="background: #f0e6f6;">
+                    <th style="border: 1px solid #ccc; padding: 12px;">柱位</th>
+                    <th style="border: 1px solid #ccc; padding: 12px;">年柱</th>
+                    <th style="border: 1px solid #ccc; padding: 12px;">月柱</th>
+                    <th style="border: 1px solid #ccc; padding: 12px;">日柱</th>
+                    <th style="border: 1px solid #ccc; padding: 12px;">時柱</th>
+                </tr>
+                <tr>
+                    <td style="border: 1px solid #ccc; padding: 10px; font-weight: bold;">干支</td>
+                    <td style="border: 1px solid #ccc; padding: 10px; font-size: 24px; font-weight: bold;">{bazi.pillars[0]}</td>
+                    <td style="border: 1px solid #ccc; padding: 10px; font-size: 24px; font-weight: bold;">{bazi.pillars[1]}</td>
+                    <td style="border: 1px solid #ccc; padding: 10px; font-size: 24px; font-weight: bold; color: #c0392b;">{bazi.pillars[2]}</td>
+                    <td style="border: 1px solid #ccc; padding: 10px; font-size: 24px; font-weight: bold;">{bazi.pillars[3]}</td>
+                </tr>
+                <tr>
+                    <td style="border: 1px solid #ccc; padding: 10px; font-weight: bold;">納音</td>
+                    <td style="border: 1px solid #ccc; padding: 10px;">{NAYIN_DATA.get(bazi.pillars[0], '')}</td>
+                    <td style="border: 1px solid #ccc; padding: 10px;">{NAYIN_DATA.get(bazi.pillars[1], '')}</td>
+                    <td style="border: 1px solid #ccc; padding: 10px;">{NAYIN_DATA.get(bazi.pillars[2], '')}</td>
+                    <td style="border: 1px solid #ccc; padding: 10px;">{NAYIN_DATA.get(bazi.pillars[3], '')}</td>
+                </tr>
+                <tr>
+                    <td style="border: 1px solid #ccc; padding: 10px; font-weight: bold;">五行</td>
+                    <td style="border: 1px solid #ccc; padding: 10px;">{ELEMENTS_MAP.get(bazi.stems[0], '')}、{ELEMENTS_MAP.get(bazi.branches[0], '')}</td>
+                    <td style="border: 1px solid #ccc; padding: 10px;">{ELEMENTS_MAP.get(bazi.stems[1], '')}、{ELEMENTS_MAP.get(bazi.branches[1], '')}</td>
+                    <td style="border: 1px solid #ccc; padding: 10px;">{ELEMENTS_MAP.get(bazi.stems[2], '')}、{ELEMENTS_MAP.get(bazi.branches[2], '')}</td>
+                    <td style="border: 1px solid #ccc; padding: 10px;">{ELEMENTS_MAP.get(bazi.stems[3], '')}、{ELEMENTS_MAP.get(bazi.branches[3], '')}</td>
+                </tr>
+            </table>
+        </div>
+    </div>"""
+
+    # === 三、五行旺衰分析 ===
+    scores = five_elem_result['scores']
+    max_score = max(scores.values()) if scores.values() else 1
+
+    element_bars = ""
+    element_colors = {'木': '#27ae60', '火': '#e74c3c', '土': '#f39c12', '金': '#bdc3c7', '水': '#3498db'}
+    for elem in ['木', '火', '土', '金', '水']:
+        score = scores.get(elem, 0)
+        percentage = (score / max_score) * 100 if max_score > 0 else 0
+        color = element_colors.get(elem, '#95a5a6')
+        element_bars += f"""
+            <div style="margin: 10px 0;">
+                <div style="display: flex; align-items: center;">
+                    <span style="width: 40px; font-weight: bold;">{elem}</span>
+                    <div style="flex: 1; background: #eee; border-radius: 10px; height: 25px; margin: 0 10px;">
+                        <div style="width: {percentage}%; background: {color}; height: 100%; border-radius: 10px; transition: width 0.5s;"></div>
+                    </div>
+                    <span style="width: 60px; text-align: right;">{score:.1f}分</span>
+                </div>
+            </div>"""
+
+    five_elem_html = f"""<div style="margin-top: 35px; font-family: '標楷體'; padding: 25px; border: 2.5px solid #27ae60; border-radius: 15px; background: #f8fff8;">
+        <h2 style="color: #27ae60; text-align: center; border-bottom: 2px solid #27ae60; padding-bottom: 10px;">⚖️ 三、五行旺衰分析</h2>
+        <div style="margin-top: 20px;">
+            {element_bars}
+        </div>
+        <div style="margin-top: 20px; padding: 15px; background: #fff; border-radius: 10px;">
+            <p><strong>日主五行：</strong>{five_elem_result['day_element']} | <strong>身強身弱：</strong><span style="color: #c0392b; font-weight: bold;">{five_elem_result['strength']}</span></p>
+            <p><strong>分析：</strong>{five_elem_result['strength_desc']}</p>
+            <p><strong>扶助力量：</strong>{five_elem_result['help_score']:.1f}分 | <strong>剋洩力量：</strong>{five_elem_result['weaken_score']:.1f}分</p>
+            {f"<p><strong>過旺五行：</strong>{'、'.join(five_elem_result['excess'])}</p>" if five_elem_result['excess'] else ""}
+            {f"<p><strong>不足五行：</strong>{'、'.join(five_elem_result['lacking'])}</p>" if five_elem_result['lacking'] else ""}
+        </div>
+    </div>"""
+
+    # === 四、格局與用神 ===
+    pattern_html = f"""<div style="margin-top: 35px; font-family: '標楷體'; padding: 25px; border: 2.5px solid #e74c3c; border-radius: 15px; background: #fff8f8;">
+        <h2 style="color: #e74c3c; text-align: center; border-bottom: 2px solid #e74c3c; padding-bottom: 10px;">🎯 四、格局與用神</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
+            <div style="padding: 20px; background: #fff; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                <h4 style="color: #c0392b; margin-bottom: 15px;">【命格格局】</h4>
+                <p style="font-size: 20px; font-weight: bold; color: #2c3e50;">{'、'.join(pattern_result['patterns'])}</p>
+                <p style="margin-top: 10px; color: #666;">{pattern_result['pattern_desc']}</p>
+            </div>
+            <div style="padding: 20px; background: #fff; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                <h4 style="color: #27ae60; margin-bottom: 15px;">【喜用神】</h4>
+                <p><strong>喜神：</strong><span style="font-size: 18px; color: #27ae60; font-weight: bold;">{pattern_result['xi_shen']}</span></p>
+                <p><strong>用神：</strong><span style="font-size: 18px; color: #3498db; font-weight: bold;">{pattern_result['yong_shen']}</span></p>
+                <p><strong>忌神：</strong><span style="color: #e74c3c;">{'、'.join(pattern_result['ji_shen']) if pattern_result['ji_shen'] else '無明顯忌神'}</span></p>
+                <p style="margin-top: 10px; color: #666;">{pattern_result['advice']}</p>
+            </div>
+        </div>
+    </div>"""
+
+    # === 五、性格特質深度分析 ===
+    god_traits_html = "".join([f"<li>{t}</li>" for t in personality_result['god_traits']]) if personality_result['god_traits'] else "<li>十神分佈平均</li>"
+
+    personality_html = f"""<div style="margin-top: 35px; font-family: '標楷體'; padding: 25px; border: 2.5px solid #f39c12; border-radius: 15px; background: #fffef8;">
+        <h2 style="color: #f39c12; text-align: center; border-bottom: 2px solid #f39c12; padding-bottom: 10px;">🌟 五、性格特質深度分析</h2>
+        <div style="margin-top: 15px;">
+            <div style="padding: 20px; background: #fff; border-radius: 10px; margin-bottom: 15px;">
+                <h4 style="color: #d35400;">【日主 {personality_result['day_master']} 的基本性格】</h4>
+                <p style="font-size: 18px; font-weight: bold; color: #2c3e50;">{personality_result['base_trait']}</p>
+                <p style="margin-top: 10px;"><strong>優點：</strong>{personality_result['positive']}</p>
+                <p><strong>缺點：</strong>{personality_result['negative']}</p>
+            </div>
+            <div style="padding: 20px; background: #fff; border-radius: 10px; margin-bottom: 15px;">
+                <h4 style="color: #8e44ad;">【身強身弱影響】</h4>
+                <p>{personality_result['strength_trait']}</p>
+            </div>
+            <div style="padding: 20px; background: #fff; border-radius: 10px;">
+                <h4 style="color: #16a085;">【十神性格特點】</h4>
+                <ul>{god_traits_html}</ul>
+            </div>
+        </div>
+    </div>"""
+
+    # === 六、事業財運分析 ===
+    industries_html = "、".join(career_result['suitable_industries']) if career_result['suitable_industries'] else "需結合大運流年分析"
+    wealth_html = "".join([f"<li>{w}</li>" for w in career_result['wealth_analysis']])
+
+    career_html = f"""<div style="margin-top: 35px; font-family: '標楷體'; padding: 25px; border: 2.5px solid #2980b9; border-radius: 15px; background: #f8faff;">
+        <h2 style="color: #2980b9; text-align: center; border-bottom: 2px solid #2980b9; padding-bottom: 10px;">💼 六、事業財運分析</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
+            <div style="padding: 20px; background: #fff; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                <h4 style="color: #2c3e50;">【事業發展】</h4>
+                <p>{career_result['career_advice']}</p>
+                <h4 style="color: #27ae60; margin-top: 15px;">【適合行業】</h4>
+                <p>{industries_html}</p>
+            </div>
+            <div style="padding: 20px; background: #fff; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                <h4 style="color: #f39c12;">【財運分析】</h4>
+                <ul>{wealth_html}</ul>
+                <p style="margin-top: 10px;"><strong>喜用五行行業：</strong>{career_result['xi_shen']}、{career_result['yong_shen']}</p>
+            </div>
+        </div>
+    </div>"""
+
+    # === 七、婚姻感情分析 ===
+    marriage_traits_html = "".join([f"<li>{t}</li>" for t in marriage_result['marriage_traits']])
+
+    marriage_html = f"""<div style="margin-top: 35px; font-family: '標楷體'; padding: 25px; border: 2.5px solid #e91e63; border-radius: 15px; background: #fff8fa;">
+        <h2 style="color: #e91e63; text-align: center; border-bottom: 2px solid #e91e63; padding-bottom: 10px;">💑 七、婚姻感情分析</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
+            <div style="padding: 20px; background: #fff; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                <h4 style="color: #c2185b;">【感情特質】</h4>
+                <ul>{marriage_traits_html}</ul>
+                <p style="margin-top: 10px;"><strong>配偶星：</strong>{marriage_result['spouse_star']}</p>
+            </div>
+            <div style="padding: 20px; background: #fff; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                <h4 style="color: #8e44ad;">【配偶特質】</h4>
+                <p>{marriage_result['spouse_desc']}</p>
+                <h4 style="color: #27ae60; margin-top: 15px;">【婚姻建議】</h4>
+                <p>{marriage_result['marriage_advice']}</p>
+            </div>
+        </div>
+    </div>"""
+
+    # === 八、健康養生指南 ===
+    warnings_html = "".join([f"<li>{w}</li>" for w in health_result['health_warnings']])
+    tips_html = "".join([f"<li>{t}</li>" for t in health_result['health_tips']]) if health_result['health_tips'] else "<li>五行平衡，注意日常保健即可</li>"
+    exercise_html = "".join([f"<li>{e}</li>" for e in health_result['exercise_tips']])
+
+    health_html = f"""<div style="margin-top: 35px; font-family: '標楷體'; padding: 25px; border: 2.5px solid #00bcd4; border-radius: 15px; background: #f8ffff;">
+        <h2 style="color: #00bcd4; text-align: center; border-bottom: 2px solid #00bcd4; padding-bottom: 10px;">🏥 八、健康養生指南</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 15px;">
+            <div style="padding: 20px; background: #fff; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                <h4 style="color: #e74c3c;">【健康注意】</h4>
+                <ul>{warnings_html}</ul>
+                <p style="margin-top: 10px;"><strong>重點臟腑：</strong>{health_result['organ_focus']}</p>
+            </div>
+            <div style="padding: 20px; background: #fff; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                <h4 style="color: #27ae60;">【飲食建議】</h4>
+                <ul>{tips_html}</ul>
+            </div>
+            <div style="padding: 20px; background: #fff; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                <h4 style="color: #3498db;">【運動養生】</h4>
+                <ul>{exercise_html}</ul>
+            </div>
+        </div>
+    </div>"""
+
+    # === 九、大運流年分析 ===
+    dayun_rows = ""
+    for dy in dayun_result['dayun_list']:
+        luck_color = {'吉': '#27ae60', '凶': '#e74c3c', '平': '#f39c12'}.get(dy['luck'], '#666')
+        dayun_rows += f"""
+            <tr>
+                <td style="border: 1px solid #ccc; padding: 10px;">{dy['age_range']}</td>
+                <td style="border: 1px solid #ccc; padding: 10px; font-size: 18px; font-weight: bold;">{dy['pillar']}</td>
+                <td style="border: 1px solid #ccc; padding: 10px;">{dy['element']}</td>
+                <td style="border: 1px solid #ccc; padding: 10px; color: {luck_color}; font-weight: bold;">{dy['luck']}</td>
+                <td style="border: 1px solid #ccc; padding: 10px;">{dy['luck_desc']}</td>
+            </tr>"""
+
+    dayun_html = f"""<div style="margin-top: 35px; font-family: '標楷體'; padding: 25px; border: 2.5px solid #673ab7; border-radius: 15px; background: #faf8ff;">
+        <h2 style="color: #673ab7; text-align: center; border-bottom: 2px solid #673ab7; padding-bottom: 10px;">🔮 九、大運流年分析</h2>
+        <div style="margin-top: 15px;">
+            <p style="text-align: center; margin-bottom: 15px;"><strong>大運方向：</strong><span style="color: #673ab7; font-weight: bold;">{dayun_result['direction']}</span></p>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr style="background: #ede7f6;">
+                    <th style="border: 1px solid #ccc; padding: 10px;">年齡段</th>
+                    <th style="border: 1px solid #ccc; padding: 10px;">大運</th>
+                    <th style="border: 1px solid #ccc; padding: 10px;">五行</th>
+                    <th style="border: 1px solid #ccc; padding: 10px;">吉凶</th>
+                    <th style="border: 1px solid #ccc; padding: 10px;">運勢說明</th>
+                </tr>
+                {dayun_rows}
+            </table>
+            <div style="margin-top: 20px; padding: 15px; background: #fff; border-radius: 10px;">
+                <h4 style="color: #d35400;">【{dayun_result['analysis_year']}年流年分析】</h4>
+                <p><strong>流年干支：</strong>{dayun_result['liunian_pillar']}</p>
+                <p>{dayun_result['liunian_luck']}</p>
+            </div>
+        </div>
+    </div>"""
+
+    # === 十、人生總體建議 ===
+    advice_cards = ""
+    for adv in life_advice:
+        advice_cards += f"""
+            <div style="padding: 15px; background: #fff; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                <h4 style="color: #2c3e50; margin-bottom: 10px;">{adv['category']}</h4>
+                <p style="font-weight: bold;">{adv['advice']}</p>
+                <p style="color: #666; font-size: 14px; margin-top: 5px;">{adv['detail']}</p>
+            </div>"""
+
+    life_html = f"""<div style="margin-top: 35px; font-family: '標楷體'; padding: 25px; border: 2.5px solid #009688; border-radius: 15px; background: #f8fffd;">
+        <h2 style="color: #009688; text-align: center; border-bottom: 2px solid #009688; padding-bottom: 10px;">💡 十、人生總體建議</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
+            {advice_cards}
+        </div>
+    </div>"""
+
+    # === 十一、開運方法 ===
+    lucky_content = ""
+    for key in ['喜神開運', '用神開運']:
+        if key in lucky_result:
+            shen_type = '喜神' if key == '喜神開運' else '用神'
+            shen_elem = lucky_result.get(shen_type, '')
+            items = lucky_result[key]
+            lucky_content += f"""
+                <div style="padding: 20px; background: #fff; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                    <h4 style="color: #ff5722;">{shen_type}（{shen_elem}）開運法</h4>
+                    <p><strong>幸運顏色：</strong>{items['colors']}</p>
+                    <p><strong>吉利方位：</strong>{items['directions']}</p>
+                    <p><strong>幸運數字：</strong>{items['numbers']}</p>
+                    <p><strong>開運物品：</strong>{items['items']}</p>
+                    <p><strong>補運食物：</strong>{items['foods']}</p>
+                </div>"""
+
+    if not lucky_content:
+        lucky_content = "<div style='padding: 20px; text-align: center;'>命局中和，各類開運方法皆可嘗試</div>"
+
+    lucky_html = f"""<div style="margin-top: 35px; font-family: '標楷體'; padding: 25px; border: 2.5px solid #ff5722; border-radius: 15px; background: #fffaf8;">
+        <h2 style="color: #ff5722; text-align: center; border-bottom: 2px solid #ff5722; padding-bottom: 10px;">🌈 十一、開運方法</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
+            {lucky_content}
+        </div>
+    </div>"""
+
+    # === 十二、命格總評 ===
+    score_bars = ""
+    for category, score in rating_result['scores'].items():
+        color = '#27ae60' if score >= 80 else '#f39c12' if score >= 70 else '#e74c3c'
+        score_bars += f"""
+            <div style="margin: 8px 0;">
+                <div style="display: flex; align-items: center;">
+                    <span style="width: 80px;">{category}</span>
+                    <div style="flex: 1; background: #eee; border-radius: 10px; height: 20px; margin: 0 10px;">
+                        <div style="width: {score}%; background: {color}; height: 100%; border-radius: 10px;"></div>
+                    </div>
+                    <span style="width: 50px; text-align: right; font-weight: bold;">{score:.0f}</span>
+                </div>
+            </div>"""
+
+    rating_html = f"""<div style="margin-top: 35px; font-family: '標楷體'; padding: 25px; border: 2.5px solid #795548; border-radius: 15px; background: #faf8f5;">
+        <h2 style="color: #795548; text-align: center; border-bottom: 2px solid #795548; padding-bottom: 10px;">📊 十二、命格總評</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
+            <div style="padding: 20px; background: #fff; border-radius: 10px;">
+                <h4 style="color: #5d4037;">【各項評分】</h4>
+                {score_bars}
+            </div>
+            <div style="padding: 20px; background: #fff; border-radius: 10px;">
+                <h4 style="color: #5d4037;">【綜合評價】</h4>
+                <div style="text-align: center; margin: 20px 0;">
+                    <span style="font-size: 48px; font-weight: bold; color: #ff5722;">{rating_result['total']}</span>
+                    <span style="font-size: 20px; color: #666;">分</span>
+                </div>
+                <p style="text-align: center; font-size: 18px; color: #2c3e50; font-weight: bold;">{rating_result['overall']}</p>
+                <p style="margin-top: 15px; text-align: center; color: #666;">
+                    吉神：{rating_result['good_sha_count']}個 | 凶煞：{rating_result['bad_sha_count']}個
+                </p>
+            </div>
+        </div>
+    </div>"""
+
+    return html + rel_html + ss_html + basic_html + full_bazi_html + five_elem_html + pattern_html + personality_html + career_html + marriage_html + health_html + dayun_html + life_html + lucky_html + rating_html
 
 # --- 6. 主程式 ---
 st.set_page_config(page_title="專業 AI 八字解析", layout="wide")
@@ -485,7 +1538,7 @@ if st.button("🔮 開始精確排盤"):
     eight_char = solar.getLunar().getEightChar()
     y_p, m_p, d_p = eight_char.getYear(), eight_char.getMonth(), eight_char.getDay()
     h_p = getattr(eight_char, 'getHour', getattr(eight_char, 'getTime', lambda: "時柱錯誤"))()
-    st.markdown(render_chart(Bazi(y_p, m_p, d_p, h_p, gender)), unsafe_allow_html=True)
+    st.markdown(render_chart(Bazi(y_p, m_p, d_p, h_p, gender), birth_date), unsafe_allow_html=True)
 
 
 
